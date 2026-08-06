@@ -142,14 +142,3 @@ export async function resolveLocation(query) {
   if (matches.length > 0) return { apt: matches[0], method: 'City Match' };
   return null;
 }
-
-export function describeLocation(r, defaultMessage = 'Type a location above') {
-  if (!r) return `<em>${defaultMessage}</em>`;
-  if (r.apt) {
-    return `<div class="meta-title">${r.apt.name} (${r.apt.iata || 'GEO'})</div><div>${r.apt.city ? r.apt.city + ', ' : ''}${r.apt.country}</div>`;
-  }
-  if (r.blocked) {
-    return `<div class="meta-hint">Military location hidden, add "military" to show it</div>`;
-  }
-  return '<div>Location unknown</div>';
-}
