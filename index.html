@@ -221,12 +221,72 @@
       height: 440px;
       border-radius: 12px;
       overflow: hidden;
-      filter: saturate(0.65) brightness(1.05) contrast(0.95);
     }
 
     .maplibregl-ctrl-attrib {
       font-size: 0.65rem;
     }
+
+    /* ---- Jelly-toned button styles ---- */
+    .jelly-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.6rem 1.2rem;
+      border-radius: 10px;
+      background: var(--jelly-color-background-accent);
+      color: var(--jelly-color-foreground-on-accent);
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: filter 0.15s ease, transform 0.05s ease, opacity 0.15s ease;
+      white-space: nowrap;
+    }
+    .jelly-btn:hover { filter: brightness(1.05); }
+    .jelly-btn:active { transform: scale(0.98); }
+    .jelly-btn.mint { background: var(--jelly-color-background-mint); }
+    .jelly-btn.disabled { opacity: 0.45; pointer-events: none; }
+
+    .batch-dropzone {
+      border: 2px dashed var(--jelly-color-border-default);
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.7rem;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .batch-dropzone.dragover {
+      border-color: var(--jelly-color-border-focus);
+      background: var(--jelly-color-background-muted);
+    }
+    .batch-instructions {
+      font-size: 0.85rem;
+      max-width: 480px;
+      line-height: 1.5;
+      opacity: 0.85;
+    }
+    .batch-filename {
+      font-size: 0.78rem;
+      opacity: 0.6;
+    }
+    .batch-progress {
+      font-size: 0.76rem;
+      opacity: 0.7;
+      font-family: var(--jelly-font-mono, ui-monospace, monospace);
+      min-height: 1.1em;
+    }
+    .batch-status {
+      font-size: 0.88rem;
+      font-weight: 700;
+      min-height: 1.2em;
+    }
+    .batch-status.error { color: #c0546a; }
   </style>
 </head>
 <body>
@@ -315,6 +375,16 @@
           </jelly-card>
 
         </main>
+
+        <jelly-card>
+          <div class="panel" style="padding: 0.9rem 1rem;">
+            <jelly-label style="font-size: 0.72rem; opacity: 0.7;">
+              Via (optional) — force the route through a waypoint.
+            </jelly-label>
+            <jelly-input id="seaVia" name="seaVia" placeholder="e.g. Skagen, Denmark"></jelly-input>
+            <div class="meta" id="seaViaMeta" style="border-top: none; padding-top: 0;"></div>
+          </div>
+        </jelly-card>
       </section>
 
       <!-- ROUTE MAP & NAUTICAL CHART -->
@@ -336,30 +406,72 @@
         </jelly-card>
       </section>
 
+      <!-- BATCH XLSX CALCULATOR -->
+      <section class="section">
+        <div class="section-label">📄 Batch calculator (.xlsx)</div>
+        <jelly-card>
+          <div class="batch-dropzone" id="batchDropzone">
+            <div class="batch-instructions">
+              Upload a spreadsheet with <strong>departure</strong>, <strong>arrival</strong> and <strong>km</strong> columns.
+              We'll fill in <strong>km</strong> (air, great circle) and add a <strong>sea_km</strong> column (sea route)
+              for every row, then hand you back a completed file.
+            </div>
+            <input type="file" id="batchFileInput" accept=".xlsx,.xls" style="display:none" />
+            <label for="batchFileInput" class="jelly-btn" id="batchChooseBtn">Choose file</label>
+            <div class="batch-filename" id="batchFilename">or drag a .xlsx file here</div>
+            <div class="batch-progress" id="batchProgress"></div>
+            <div class="batch-status" id="batchStatus"></div>
+            <a id="batchDownloadBtn" class="jelly-btn mint" style="display:none;" download>⬇ Download result</a>
+          </div>
+        </jelly-card>
+      </section>
+
     </div>
   </jelly-theme>
 
   <script>
     // ================= SEAROUTE LIBRARY LOADER =================
-    let searoutePromise = null;
-    async function loadSearouteEngine() {
-      if (searoutePromise) return searoutePromise;
+    let searouteModPromise = null;
+    async function loadSearouteModule() {
+      if (searouteModPromise) return searouteModPromise;
 
-      searoutePromise = (async () => {
+      searouteModPromise = (async () => {
         try {
           const mod = await import('https://esm.sh/searoute-ts@2.2.0');
-          if (mod && (mod.seaRoute || mod.default)) return mod.seaRoute || mod.default;
+          if (mod && (mod.seaRoute || mod.default)) return mod;
         } catch (e1) {}
 
         try {
           const mod = await import('https://cdn.jsdelivr.net/npm/searoute-ts@2.2.0/+esm');
-          if (mod && (mod.seaRoute || mod.default)) return mod.seaRoute || mod.default;
+          if (mod && (mod.seaRoute || mod.default)) return mod;
         } catch (e2) {}
 
         throw new Error('Could not load searoute-ts library');
       })();
 
-      return searoutePromise;
+      return searouteModPromise;
+    }
+
+    // ================= XLSX LIBRARY LOADER =================
+    let xlsxModPromise = null;
+    async function loadXlsxModule() {
+      if (xlsxModPromise) return xlsxModPromise;
+
+      xlsxModPromise = (async () => {
+        try {
+          const mod = await import('https://esm.sh/xlsx@0.18.5');
+          if (mod && mod.read && mod.write) return mod;
+        } catch (e1) {}
+
+        try {
+          const mod = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+          if (mod && mod.read && mod.write) return mod;
+        } catch (e2) {}
+
+        throw new Error('Could not load the xlsx (SheetJS) library');
+      })();
+
+      return xlsxModPromise;
     }
 
     // ================= MAP LOGIC =================
@@ -439,28 +551,69 @@
 
     function initMap() {
       const mapEl = document.getElementById('map');
-      
+
       map = new maplibregl.Map({
         container: 'map',
-        style: 'https://demotiles.maplibre.org/style.json',
+        style: {
+          version: 8,
+          sources: {},
+          layers: [],
+          glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf'
+        },
         center: [20, 25],
-        zoom: 1
+        zoom: 1,
+        attributionControl: false
       });
+
+      map.addControl(new maplibregl.AttributionControl({
+        customAttribution:
+          '© <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> · ' +
+          '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors · ' +
+          'Seamarks © <a href="https://www.openseamap.org/" target="_blank" rel="noopener">OpenSeaMap</a>'
+      }));
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
       const ro = new ResizeObserver(() => {
         if (map) map.resize();
       });
       ro.observe(mapEl);
 
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-      
       map.on('load', () => {
         map.resize();
 
+        map.addSource('carto-basemap', {
+          type: 'raster',
+          tiles: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'],
+          tileSize: 256,
+          maxzoom: 20,
+          attribution: '© CARTO © OpenStreetMap contributors'
+        });
+        map.addLayer({
+          id: 'carto-basemap-layer',
+          type: 'raster',
+          source: 'carto-basemap',
+          paint: {
+            'raster-saturation': -0.25,
+            'raster-brightness-min': 0.18,
+            'raster-brightness-max': 0.97,
+            'raster-contrast': -0.05
+          }
+        });
+
+        map.addLayer({
+          id: 'pastel-wash',
+          type: 'background',
+          paint: {
+            'background-color': '#8fc7e8',
+            'background-opacity': 0.07
+          }
+        });
+
         map.addSource('openseamark', {
           type: 'raster',
-          tiles: ['https://tiles.openseamark.org/seamark/{z}/{x}/{y}.png'],
-          tileSize: 256
+          tiles: ['https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png'],
+          tileSize: 256,
+          attribution: '© OpenSeaMap contributors'
         });
         map.addLayer({
           id: 'openseamark-layer',
@@ -503,7 +656,13 @@
 
         map.addLayer({
           id: 'marker-labels', type: 'symbol', source: 'markers',
-          layout: { 'text-field': ['get', 'label'], 'text-size': 11, 'text-offset': [0, 1.3], 'text-anchor': 'top' },
+          layout: {
+            'text-field': ['get', 'label'],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 11,
+            'text-offset': [0, 1.3],
+            'text-anchor': 'top'
+          },
           paint: { 'text-color': '#263646', 'text-halo-color': '#ffffff', 'text-halo-width': 1.4 }
         });
 
@@ -554,6 +713,9 @@
 
     // ================= DATA & RESOLUTION =================
     let DB = [], IATA = {};
+    let dbLoaded = false;
+    let dbLoadResolve, dbLoadReject;
+    const dbLoadPromise = new Promise((res, rej) => { dbLoadResolve = res; dbLoadReject = rej; });
 
     const MILITARY_RE = /(air force base|naval air station|naval station|marine corps air station|army airfield|army air field|joint base|coast guard air station|coast guard station|\bmcas\b|\bnas\b|\bnaws\b|\braf\b|\bafb\b|air base|airbase|\bmilitary\b)/i;
     const MILITARY_INTENT_RE = /\b(military|air force|afb|raf|navy|naval|army|marine corps|mcas|joint base|air base|airbase|coast guard)\b/i;
@@ -583,11 +745,14 @@
           }
         }
         badge.style.display = 'none';
+        dbLoaded = true;
+        dbLoadResolve();
         airRun();
         seaRun();
       } catch (e) {
         badge.setAttribute('variant', 'rose');
         badge.textContent = 'Offline';
+        dbLoadReject(e);
       }
     }
 
@@ -597,6 +762,29 @@
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // ---- Nominatim cached geocoder ----
+    const geocodeCache = new Map();
+    let lastNominatimCall = 0;
+    async function geocodeNominatim(query) {
+      if (geocodeCache.has(query)) return geocodeCache.get(query);
+
+      const wait = Math.max(0, 1100 - (Date.now() - lastNominatimCall));
+      if (wait > 0) await new Promise(r => setTimeout(r, wait));
+      lastNominatimCall = Date.now();
+
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
+          headers: { 'Accept-Language': 'en' }
+        });
+        const geo = await res.json();
+        geocodeCache.set(query, geo);
+        return geo;
+      } catch (err) {
+        geocodeCache.set(query, null);
+        return null;
+      }
     }
 
     async function resolve(query) {
@@ -619,23 +807,18 @@
         if (blockedDirect) return { apt: null, blocked: true };
       }
 
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
-          headers: { 'Accept-Language': 'en' }
-        });
-        const geo = await res.json();
-        if (geo && geo.length) {
-          const tLat = +geo[0].lat, tLon = +geo[0].lon;
-          let best = null, minDist = Infinity;
-          for (let i = 0; i < DB.length; i++) {
-            if (DB[i].iata && DB[i].iata.length === 3 && (!DB[i].mil || wantsMilitary)) {
-              const d = haversine(tLat, tLon, DB[i].lat, DB[i].lon);
-              if (d < minDist) { minDist = d; best = DB[i]; }
-            }
+      const geo = await geocodeNominatim(query);
+      if (geo && geo.length) {
+        const tLat = +geo[0].lat, tLon = +geo[0].lon;
+        let best = null, minDist = Infinity;
+        for (let i = 0; i < DB.length; i++) {
+          if (DB[i].iata && DB[i].iata.length === 3 && (!DB[i].mil || wantsMilitary)) {
+            const d = haversine(tLat, tLon, DB[i].lat, DB[i].lon);
+            if (d < minDist) { minDist = d; best = DB[i]; }
           }
-          if (best) return { apt: best, method: 'Geocoded Hub' };
         }
-      } catch (err) {}
+        if (best) return { apt: best, method: 'Geocoded Hub' };
+      }
 
       return null;
     }
@@ -694,7 +877,7 @@
       if (r1 && r1.apt && r2 && r2.apt) {
         rawKm = haversine(r1.apt.lat, r1.apt.lon, r2.apt.lat, r2.apt.lon);
         document.getElementById('route').textContent = `${r1.apt.iata} → ${r2.apt.iata}`;
-        
+
         lastAirLine = greatCircleFeature(r1.apt.lon, r1.apt.lat, r2.apt.lon, r2.apt.lat);
         airMarkerFeatures = [
           markerFeature(r1.apt.lon, r1.apt.lat, 'air', r1.apt.iata),
@@ -717,8 +900,10 @@
     async function seaRun() {
       const oVal = document.getElementById('seaOrig').value || '';
       const dVal = document.getElementById('seaDest').value || '';
+      const viaVal = document.getElementById('seaVia').value || '';
       const oEl = document.getElementById('seaOrigMeta');
       const dEl = document.getElementById('seaDestMeta');
+      const viaEl = document.getElementById('seaViaMeta');
       const distEl = document.getElementById('seaDist');
       const durationEl = document.getElementById('seaDuration');
       const routeEl = document.getElementById('seaRoute');
@@ -726,12 +911,19 @@
 
       oEl.innerHTML = '<span style="opacity:0.5">Resolving...</span>';
       dEl.innerHTML = '<span style="opacity:0.5">Resolving...</span>';
+      viaEl.innerHTML = '';
 
       const r1 = await resolve(oVal);
       const r2 = await resolve(dVal);
+      const rVia = viaVal.trim() ? await resolve(viaVal) : null;
 
       describeSea(r1, oEl);
       describeSea(r2, dEl);
+      if (viaVal.trim()) {
+        viaEl.innerHTML = rVia && rVia.apt
+          ? `<span style="opacity:0.6">via ${rVia.apt.city || rVia.apt.name}${rVia.apt.country ? ', ' + rVia.apt.country : ''}</span>`
+          : '<span class="meta-hint">Via location unknown — ignoring it</span>';
+      }
 
       if (!(r1 && r1.apt && r2 && r2.apt)) {
         distEl.textContent = '-- km';
@@ -747,69 +939,179 @@
 
       const oPlace = r1.apt.city || r1.apt.name;
       const dPlace = r2.apt.city || r2.apt.name;
-      routeEl.textContent = `${oPlace} → ${dPlace} · calculating...`;
+      const viaPlace = rVia && rVia.apt ? (rVia.apt.city || rVia.apt.name) : null;
+      routeEl.textContent = `${oPlace}${viaPlace ? ' → ' + viaPlace : ''} → ${dPlace} · calculating...`;
       distEl.textContent = '...';
 
       seaMarkerFeatures = [
         markerFeature(r1.apt.lon, r1.apt.lat, 'sea', oPlace),
+        ...(viaPlace ? [markerFeature(rVia.apt.lon, rVia.apt.lat, 'sea', viaPlace)] : []),
         markerFeature(r2.apt.lon, r2.apt.lat, 'sea', dPlace)
       ];
 
+      const speedKnots = 22;
+
       try {
-        const seaRouteFn = await loadSearouteEngine();
-        const speedKnots = 22;
-        const draftMeters = 14;
+        const mod = await loadSearouteModule();
+        const seaRouteFn = mod.seaRoute || mod.default;
+        const seaRouteMultiFn = mod.seaRouteMulti;
 
-        // Calculate sea route with exact VesselFinder / Searoute options
-        const rawFeature = seaRouteFn(
-          [r1.apt.lon, r1.apt.lat],
-          [r2.apt.lon, r2.apt.lat],
-          {
-            units: 'kilometers',
-            vesselDraftMeters: draftMeters,
-            speedKnots: speedKnots,
-            returnPassages: true
-          }
-        );
+        // vesselDraftMeters: 14 enforces realistic deep-sea navigation rules,
+        // bypassing shallow canals (Kiel, Corinth) that would otherwise cut across land.
+        const options = { units: 'kilometers', speedKnots, vesselDraftMeters: 14, returnPassages: true };
+        const feature = viaPlace && seaRouteMultiFn
+          ? seaRouteMultiFn(
+              [[r1.apt.lon, r1.apt.lat], [rVia.apt.lon, rVia.apt.lat], [r2.apt.lon, r2.apt.lat]],
+              options
+            )
+          : seaRouteFn([r1.apt.lon, r1.apt.lat], [r2.apt.lon, r2.apt.lat], options);
 
-        if (!rawFeature) {
-          distEl.textContent = '-- km';
-          durationEl.textContent = '-- h';
-          routeEl.textContent = `${oPlace} → ${dPlace} · no sea route (landlocked)`;
-          passagesEl.innerHTML = '';
-          lastSeaLine = null;
-        } else {
-          const km = rawFeature.properties.length;
-          const nm = km / 1.852;
-          const hours = km / (speedKnots * 1.852);
-          const days = hours / 24;
+        const km = feature.properties.length;
+        const nm = km / 1.852;
+        const hours = feature.properties.durationHours != null ? feature.properties.durationHours : km / (speedKnots * 1.852);
+        const days = hours / 24;
 
-          distEl.textContent = `${Math.round(km).toLocaleString()} km`;
-          durationEl.textContent = `${Math.round(nm).toLocaleString()} NM · ${Math.round(hours)} h (${days.toFixed(1)} DAYS @ ${speedKnots} KN)`;
+        distEl.textContent = `${Math.round(km).toLocaleString()} km`;
+        durationEl.textContent = `${Math.round(nm).toLocaleString()} NM · ${Math.round(hours)} h (${days.toFixed(1)} days @ ${speedKnots} kn)`;
 
-          const gcKm = haversine(r1.apt.lat, r1.apt.lon, r2.apt.lat, r2.apt.lon);
-          const detour = (km / gcKm).toFixed(2);
-          routeEl.textContent = `${oPlace} → ${dPlace} · Great Circle: ${Math.round(gcKm).toLocaleString()} km (Detour ${detour}x)`;
+        const gcKm = feature.properties.greatCircleLength;
+        const detour = feature.properties.detourRatio != null ? feature.properties.detourRatio.toFixed(2) : (km / gcKm).toFixed(2);
+        routeEl.textContent = `${oPlace}${viaPlace ? ' → ' + viaPlace : ''} → ${dPlace} · great circle: ${Math.round(gcKm).toLocaleString()} km (detour ${detour}x)`;
 
-          const passages = rawFeature.properties.passages || rawFeature.properties.traversedPassages || rawFeature.properties.chokepoints || [];
-          if (Array.isArray(passages) && passages.length > 0) {
-            passagesEl.innerHTML = passages.map(p => `<jelly-badge variant="azure">${p}</jelly-badge>`).join(' ');
-          } else {
-            passagesEl.innerHTML = '';
-          }
+        const passages = feature.properties.passages || [];
+        passagesEl.innerHTML = passages.length
+          ? passages.map(p => `<jelly-badge variant="azure">${p}</jelly-badge>`).join(' ')
+          : '';
 
-          lastSeaLine = cleanSeaRouteFeature(rawFeature);
-        }
+        lastSeaLine = cleanSeaRouteFeature(feature);
       } catch (err) {
+        lastSeaLine = null;
+        passagesEl.innerHTML = '';
+        const isLandlocked = err && (err.name === 'SnapFailedError' || /snap/i.test(err.message || ''));
+        const isNoRoute = err && (err.name === 'NoRouteError' || /no route|path/i.test(err.message || ''));
         distEl.textContent = '-- km';
         durationEl.textContent = '-- h';
-        routeEl.textContent = 'Unable to calculate sea route';
-        passagesEl.innerHTML = '';
-        lastSeaLine = null;
+        const legLabel = `${oPlace}${viaPlace ? ' → ' + viaPlace : ''} → ${dPlace}`;
+        routeEl.textContent = isLandlocked
+          ? `${legLabel} · no sea route (landlocked)`
+          : isNoRoute
+            ? `${legLabel} · no maritime path found`
+            : 'Unable to calculate sea route';
       }
 
       refreshMapSources();
       fitMapToAll();
+    }
+
+    // ================= BATCH XLSX CALCULATOR =================
+    function findColumnIndex(header, patterns) {
+      for (let i = 0; i < header.length; i++) {
+        const h = String(header[i] == null ? '' : header[i]).trim().toLowerCase();
+        if (patterns.some(p => p.test(h))) return i;
+      }
+      return -1;
+    }
+
+    async function processBatchFile(file) {
+      const statusEl = document.getElementById('batchStatus');
+      const progressEl = document.getElementById('batchProgress');
+      const downloadBtn = document.getElementById('batchDownloadBtn');
+      const chooseBtn = document.getElementById('batchChooseBtn');
+
+      downloadBtn.style.display = 'none';
+      statusEl.classList.remove('error');
+      statusEl.innerHTML = '<span style="opacity:0.6; font-weight:500;">Reading file...</span>';
+      progressEl.textContent = '';
+      chooseBtn.classList.add('disabled');
+
+      try {
+        const XLSX = await loadXlsxModule();
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const sheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false });
+
+        if (!rows.length) throw new Error('That sheet looks empty.');
+
+        const header = rows[0].slice();
+        let depIdx = findColumnIndex(header, [/^depart/, /^origin/, /^from$/]);
+        let arrIdx = findColumnIndex(header, [/^arriv/, /^dest/, /^to$/]);
+        let kmIdx = findColumnIndex(header, [/^km$/, /^air.?km/, /^air.?dist/]);
+        let seaIdx = findColumnIndex(header, [/^sea.?km/, /^sea.?dist/]);
+
+        if (depIdx === -1 || arrIdx === -1) {
+          throw new Error('Could not find "departure" and "arrival" columns in the header row.');
+        }
+        if (kmIdx === -1) { kmIdx = header.length; header.push('km'); }
+        if (seaIdx === -1) { seaIdx = header.length; header.push('sea_km'); }
+        rows[0] = header;
+
+        if (!dbLoaded) {
+          statusEl.innerHTML = '<span style="opacity:0.6; font-weight:500;">Waiting for airport database...</span>';
+          await dbLoadPromise;
+        }
+
+        const mod = await loadSearouteModule();
+        const seaRouteFn = mod.seaRoute || mod.default;
+
+        const dataRows = rows.slice(1);
+        let ok = 0, failed = 0;
+
+        for (let i = 0; i < dataRows.length; i++) {
+          const row = dataRows[i];
+          const depVal = row[depIdx] != null ? String(row[depIdx]) : '';
+          const arrVal = row[arrIdx] != null ? String(row[arrIdx]) : '';
+          progressEl.textContent = `Row ${i + 1} of ${dataRows.length}: ${depVal || '?'} → ${arrVal || '?'}`;
+
+          if (!depVal || !arrVal) {
+            row[kmIdx] = row[kmIdx] || '';
+            row[seaIdx] = row[seaIdx] || '';
+            failed++;
+            continue;
+          }
+
+          const r1 = await resolve(depVal);
+          const r2 = await resolve(arrVal);
+
+          if (r1 && r1.apt && r2 && r2.apt) {
+            const airKm = haversine(r1.apt.lat, r1.apt.lon, r2.apt.lat, r2.apt.lon);
+            row[kmIdx] = Math.round(airKm);
+
+            try {
+              const feature = seaRouteFn([r1.apt.lon, r1.apt.lat], [r2.apt.lon, r2.apt.lat], { units: 'kilometers', vesselDraftMeters: 14 });
+              row[seaIdx] = Math.round(feature.properties.length);
+            } catch (seaErr) {
+              row[seaIdx] = 'n/a (no sea route)';
+            }
+            ok++;
+          } else {
+            row[kmIdx] = 'unresolved';
+            row[seaIdx] = 'unresolved';
+            failed++;
+          }
+        }
+
+        const newWs = XLSX.utils.aoa_to_sheet(rows);
+        wb.Sheets[sheetName] = newWs;
+        const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+
+        const outName = file.name.replace(/\.(xlsx|xls)$/i, '') + '_calculated.xlsx';
+        downloadBtn.href = url;
+        downloadBtn.download = outName;
+        downloadBtn.style.display = 'inline-flex';
+
+        progressEl.textContent = '';
+        statusEl.innerHTML = `<span>✓ ${ok} row${ok === 1 ? '' : 's'} calculated${failed ? `, ${failed} skipped/unresolved` : ''}</span>`;
+      } catch (err) {
+        progressEl.textContent = '';
+        statusEl.classList.add('error');
+        statusEl.textContent = err && err.message ? err.message : 'Failed to process file.';
+      } finally {
+        chooseBtn.classList.remove('disabled');
+      }
     }
 
     // ================= LISTENERS & INIT =================
@@ -822,7 +1124,30 @@
 
     document.getElementById('seaOrig').addEventListener('input', onSeaInput);
     document.getElementById('seaDest').addEventListener('input', onSeaInput);
+    document.getElementById('seaVia').addEventListener('input', onSeaInput);
     document.getElementById('nauticalOverlayToggle').addEventListener('change', toggleNauticalOverlay);
+
+    const batchInput = document.getElementById('batchFileInput');
+    const batchDropzone = document.getElementById('batchDropzone');
+    const batchFilename = document.getElementById('batchFilename');
+
+    batchInput.addEventListener('change', () => {
+      const f = batchInput.files[0];
+      if (f) { batchFilename.textContent = f.name; processBatchFile(f); }
+    });
+
+    ['dragover', 'dragenter'].forEach(evt => batchDropzone.addEventListener(evt, e => {
+      e.preventDefault();
+      batchDropzone.classList.add('dragover');
+    }));
+    ['dragleave', 'drop'].forEach(evt => batchDropzone.addEventListener(evt, e => {
+      e.preventDefault();
+      batchDropzone.classList.remove('dragover');
+    }));
+    batchDropzone.addEventListener('drop', e => {
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) { batchFilename.textContent = f.name; processBatchFile(f); }
+    });
 
     initMap();
     loadDB();
