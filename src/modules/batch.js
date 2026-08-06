@@ -1,21 +1,44 @@
 import * as XLSX from 'xlsx';
-import { seaRoute } from 'searoute-ts';
-import { resolveLocation, haversine, dbLoadPromise } from './geocoder.js';
+import { processSeaRoute } from './sea.js';
+import { processRoadRoute } from './road.js';
+import { processAirRoute } from './air.js';
+import { resolveLocation, dbLoadPromise } from './geocoder.js';
 
 export function downloadSampleTemplate(type = 'simple') {
   let sampleData = [];
   let filename = '';
 
-  if (type === 'detailed') {
+  if (type === 'master') {
     sampleData = [
-      ['departure_country', 'departure_city', 'arrival_country', 'arrival_city', 'km', 'sea_km', 'road_km'],
+      ['departure_country', 'departure_city', 'arrival_country', 'arrival_city', 'vessel_draft_m', 'via_waypoint', 'air_km', 'sea_km', 'road_km', 'sea_passages'],
+      ['Germany', 'Hamburg', 'Turkey', 'Istanbul', '14', 'Skagen', '', '', '', ''],
+      ['China', 'Shanghai', 'Netherlands', 'Rotterdam', '22', '', '', '', '', '']
+    ];
+    filename = 'distance_template_master.xlsx';
+  } else if (type === 'waypoint') {
+    sampleData = [
+      ['departure', 'arrival', 'via_waypoint', 'air_km', 'sea_km', 'road_km', 'sea_passages'],
+      ['Hamburg, Germany', 'Istanbul, Turkey', 'Skagen', '', '', '', ''],
+      ['Singapore', 'Rotterdam', 'Suez', '', '', '', '']
+    ];
+    filename = 'distance_template_waypoint.xlsx';
+  } else if (type === 'draft') {
+    sampleData = [
+      ['departure', 'arrival', 'vessel_draft_m', 'air_km', 'sea_km', 'road_km', 'sea_passages'],
+      ['Shanghai, China', 'Rotterdam', '12', '', '', '', ''],
+      ['Shanghai, China', 'Rotterdam', '22', '', '', '', '']
+    ];
+    filename = 'distance_template_draft.xlsx';
+  } else if (type === 'split') {
+    sampleData = [
+      ['departure_country', 'departure_city', 'arrival_country', 'arrival_city', 'air_km', 'sea_km', 'road_km'],
       ['Germany', 'Hamburg', 'Turkey', 'Istanbul', '', '', ''],
       ['United Kingdom', 'London', 'United States', 'New York', '', '', '']
     ];
-    filename = 'distance_template_detailed.xlsx';
+    filename = 'distance_template_split.xlsx';
   } else {
     sampleData = [
-      ['departure', 'arrival', 'km', 'sea_km', 'road_km'],
+      ['departure', 'arrival', 'air_km', 'sea_km', 'road_km'],
       ['Hamburg, Germany', 'Istanbul, Turkey', '', '', ''],
       ['London, UK', 'New York, USA', '', '', '']
     ];
@@ -83,20 +106,25 @@ export async function processBatchFile(file) {
     let depIdx = findColumnIndex(header, [/^depart/, /^origin/, /^from$/]);
     let arrIdx = findColumnIndex(header, [/^arriv/, /^dest/, /^to$/]);
 
+    let draftIdx = findColumnIndex(header, [/^draft/, /^vessel.*draft/, /^su.?cekimi/]);
+    let viaIdx = findColumnIndex(header, [/^via/, /^waypoint/]);
+
     const isSplitFormat = (depCountryIdx !== -1 || depCityIdx !== -1) && (arrCountryIdx !== -1 || arrCityIdx !== -1);
     const isCombinedFormat = depIdx !== -1 && arrIdx !== -1;
 
     if (!isSplitFormat && !isCombinedFormat) {
-      throw new Error('Could not find departure/arrival columns. Use "departure" & "arrival" OR "departure_country", "departure_city", "arrival_country", "arrival_city".');
+      throw new Error('Could not find departure/arrival columns.');
     }
 
-    let kmIdx = findColumnIndex(header, [/^km$/, /^air.?km/, /^air.?dist/]);
-    let seaIdx = findColumnIndex(header, [/^sea.?km/, /^sea.?dist/]);
-    let roadIdx = findColumnIndex(header, [/^road.?km/, /^driving.?km/, /^karayolu/]);
+    let airKmIdx = findColumnIndex(header, [/^air_km$/, /^km$/, /^air.?dist/]);
+    let seaKmIdx = findColumnIndex(header, [/^sea_km$/, /^sea.?dist/]);
+    let roadKmIdx = findColumnIndex(header, [/^road_km$/, /^driving.?km/]);
+    let passagesIdx = findColumnIndex(header, [/^sea_passages$/, /^passages$/, /^notes/]);
 
-    if (kmIdx === -1) { kmIdx = header.length; header.push('km'); }
-    if (seaIdx === -1) { seaIdx = header.length; header.push('sea_km'); }
-    if (roadIdx === -1) { roadIdx = header.length; header.push('road_km'); }
+    if (airKmIdx === -1) { airKmIdx = header.length; header.push('air_km'); }
+    if (seaKmIdx === -1) { seaKmIdx = header.length; header.push('sea_km'); }
+    if (roadKmIdx === -1) { roadKmIdx = header.length; header.push('road_km'); }
+    if (passagesIdx === -1) { passagesIdx = header.length; header.push('sea_passages'); }
     rows[0] = header;
 
     await dbLoadPromise;
@@ -108,6 +136,8 @@ export async function processBatchFile(file) {
       const row = dataRows[i];
       let depQuery = '';
       let arrQuery = '';
+      let draftVal = draftIdx !== -1 ? row[draftIdx] : null;
+      let viaVal = viaIdx !== -1 ? String(row[viaIdx] || '').trim() : '';
 
       if (isSplitFormat) {
         const depCity = depCityIdx !== -1 && row[depCityIdx] != null ? String(row[depCityIdx]).trim() : '';
@@ -125,50 +155,27 @@ export async function processBatchFile(file) {
       if (progressEl) progressEl.textContent = `Row ${i + 1} of ${dataRows.length}: ${depQuery || '?'} → ${arrQuery || '?'}`;
 
       if (!depQuery || !arrQuery) {
-        row[kmIdx] = row[kmIdx] || '';
-        row[seaIdx] = row[seaIdx] || '';
-        row[roadIdx] = row[roadIdx] || '';
+        row[airKmIdx] = ''; row[seaKmIdx] = ''; row[roadKmIdx] = ''; row[passagesIdx] = '';
         failed++;
         continue;
       }
 
-      const r1 = await resolveLocation(depQuery);
-      const r2 = await resolveLocation(arrQuery);
+      const airRes = await processAirRoute(depQuery, arrQuery);
+      const seaRes = await processSeaRoute(depQuery, arrQuery, viaVal, draftVal);
+      const roadRes = await processRoadRoute(depQuery, arrQuery);
 
-      if (r1 && r1.apt && r2 && r2.apt) {
-        // Air
-        const airKm = haversine(r1.apt.lat, r1.apt.lon, r2.apt.lat, r2.apt.lon);
-        row[kmIdx] = Math.round(airKm);
+      if (airRes && airRes.rawKm != null) row[airKmIdx] = Math.round(airRes.rawKm);
+      else row[airKmIdx] = 'unresolved';
 
-        // Sea
-        try {
-          const feature = seaRoute([r1.apt.lon, r1.apt.lat], [r2.apt.lon, r2.apt.lat], { units: 'kilometers', vesselDraftMeters: 14 });
-          row[seaIdx] = Math.round(feature.properties.length);
-        } catch (seaErr) {
-          row[seaIdx] = 'n/a (no sea route)';
-        }
+      if (seaRes && seaRes.km != null) {
+        row[seaKmIdx] = Math.round(seaRes.km);
+        row[passagesIdx] = seaRes.passages && seaRes.passages.length ? seaRes.passages.join(', ') : 'Direct';
+      } else row[seaKmIdx] = 'n/a';
 
-        // Road (OSRM)
-        try {
-          const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${r1.apt.lon},${r1.apt.lat};${r2.apt.lon},${r2.apt.lat}?overview=false`;
-          const osrmRes = await fetch(osrmUrl);
-          const osrmData = await osrmRes.json();
-          if (osrmData.code === 'Ok' && osrmData.routes && osrmData.routes.length) {
-            row[roadIdx] = Math.round(osrmData.routes[0].distance / 1000);
-          } else {
-            row[roadIdx] = 'n/a (no road route)';
-          }
-        } catch (roadErr) {
-          row[roadIdx] = 'n/a (error)';
-        }
+      if (roadRes && roadRes.km != null) row[roadKmIdx] = Math.round(roadRes.km);
+      else row[roadKmIdx] = 'n/a';
 
-        ok++;
-      } else {
-        row[kmIdx] = 'unresolved';
-        row[seaIdx] = 'unresolved';
-        row[roadIdx] = 'unresolved';
-        failed++;
-      }
+      ok++;
     }
 
     const newWs = XLSX.utils.aoa_to_sheet(rows);
@@ -191,4 +198,4 @@ export async function processBatchFile(file) {
   } finally {
     if (chooseBtn) chooseBtn.removeAttribute('disabled');
   }
-}
+      }
