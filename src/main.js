@@ -53,18 +53,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMap('map');
   await loadDB(document.getElementById('statusBadge'));
 
-  // 5 Template Buttons
+  // 5 Template Butonu (Doğrudan Yerel Dinleyiciler)
   document.getElementById('btnTpl1')?.addEventListener('click', () => downloadSampleTemplate('simple'));
   document.getElementById('btnTpl2')?.addEventListener('click', () => downloadSampleTemplate('split'));
   document.getElementById('btnTpl3')?.addEventListener('click', () => downloadSampleTemplate('draft'));
   document.getElementById('btnTpl4')?.addEventListener('click', () => downloadSampleTemplate('waypoint'));
   document.getElementById('btnTpl5')?.addEventListener('click', () => downloadSampleTemplate('master'));
 
+  // Sadece Download butonuna dinleyici ekliyoruz. 
+  // NOT: "Choose file" butonu bir <label> olduğu için HTML onu otomatik açar, JS eklemiyoruz!
   document.getElementById('batchDownloadBtn')?.addEventListener('click', triggerBatchDownload);
 
   document.getElementById('nauticalOverlayToggle')?.addEventListener('change', (e) => toggleNauticalOverlay(e.target.checked));
 
-  // Batch Processing File Input
   const batchInput = document.getElementById('batchFileInput');
   const batchDropzone = document.getElementById('batchDropzone');
   const batchFilename = document.getElementById('batchFilename');
@@ -87,6 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       batchDropzone.classList.remove('dragover');
     }));
     batchDropzone.addEventListener('drop', e => {
+      e.preventDefault();
       const f = e.dataTransfer.files && e.dataTransfer.files[0];
       if (f) {
         if (batchFilename) batchFilename.textContent = f.name;
