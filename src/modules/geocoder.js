@@ -69,76 +69,63 @@ export async function geocodeNominatim(query) {
   }
 }
 
-export async function resolveLocation(query) {
+// mode: 'air' | 'sea' | 'road'
+export async function resolveLocation(query, mode = 'air') {
   if (!query || !query.trim()) return null;
-
-  if (!dbLoaded) await dbLoadPromise;
 
   const rawQ = query.trim();
   const q = rawQ.toUpperCase();
   const ql = rawQ.toLowerCase();
-  const wantsMilitary = MILITARY_INTENT_RE.test(rawQ);
 
-  if (q.length === 3 && IATA[q]) {
-    const apt = IATA[q];
-    if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
-    return { apt, method: 'IATA Match' };
-  }
+  // 1. Sadece AIR modunda veya 3 harfli IATA kodu doğrudan girilince Havalimanı DB'sinde ara
+  if (mode === 'air' || (q.length === 3 && /^[A-Z]{3}$/.test(q))) {
+    if (!dbLoaded) await dbLoadPromise;
+    const wantsMilitary = MILITARY_INTENT_RE.test(rawQ);
 
-  let userCountryOrState = null;
-  if (rawQ.includes(',')) {
-    const parts = rawQ.split(',').map(s => s.trim().toLowerCase());
-    userCountryOrState = parts[parts.length - 1];
-  }
-
-  const matches = DB.filter(a => {
-    if (!a.iata) return false;
-    if (a.mil && !wantsMilitary) return false;
-    const c = a.city.toLowerCase();
-    const n = a.name.toLowerCase();
-    return c === ql || n === ql;
-  });
-
-  if (userCountryOrState && matches.length > 0) {
-    const specificMatches = matches.filter(a => 
-      a.country.toLowerCase() === userCountryOrState || 
-      a.country.toLowerCase().includes(userCountryOrState)
-    );
-    if (specificMatches.length > 0) {
-      return { apt: specificMatches[0], method: 'Specific Match' };
+    if (q.length === 3 && IATA[q]) {
+      const apt = IATA[q];
+      if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
+      return { apt, method: 'IATA Match' };
     }
   }
 
-  if (!userCountryOrState && MAJOR_CITIES[ql]) {
-    const pref = MAJOR_CITIES[ql];
-    if (IATA[pref.preferredIata]) {
-      return { apt: IATA[pref.preferredIata], method: 'Major Hub Match' };
-    }
-  }
-
+  // 2. SEA ve ROAD modunda doğrudan OpenStreetMap/Nominatim Şehir ve Kıyı Arama
   const geo = await geocodeNominatim(rawQ);
   if (geo && geo.length) {
     const tLat = +geo[0].lat, tLon = +geo[0].lon;
+    const placeName = geo[0].display_name.split(',')[0];
+    const countryName = geo[0].display_name.split(',').slice(-1)[0].trim();
 
-    let best = null, minDist = Infinity;
-    for (let i = 0; i < DB.length; i++) {
-      if (DB[i].iata && DB[i].iata.length === 3 && (!DB[i].mil || wantsMilitary)) {
-        const d = haversine(tLat, tLon, DB[i].lat, DB[i].lon);
-        if (d < minDist) { minDist = d; best = DB[i]; }
+    if (mode === 'air') {
+      if (!dbLoaded) await dbLoadPromise;
+      let best = null, minDist = Infinity;
+      for (let i = 0; i < DB.length; i++) {
+        if (DB[i].iata && DB[i].iata.length === 3) {
+          const d = haversine(tLat, tLon, DB[i].lat, DB[i].lon);
+          if (d < minDist) { minDist = d; best = DB[i]; }
+        }
+      }
+      if (best && minDist < 250) {
+        return { apt: best, method: 'Geocoded Airport Hub' };
       }
     }
 
-    if (best && minDist < 250) {
-      return { apt: best, method: 'Geocoded Hub' };
-    }
-
-    const placeName = geo[0].display_name.split(',')[0];
-    const countryName = geo[0].display_name.split(',').slice(-1)[0].trim();
-    return { 
-      apt: { lat: tLat, lon: tLon, name: placeName, city: placeName, country: countryName } 
+    return {
+      apt: {
+        lat: tLat,
+        lon: tLon,
+        name: placeName,
+        city: placeName,
+        country: countryName
+      },
+      method: mode === 'sea' ? 'Coastal Port' : 'City Address'
     };
   }
 
-  if (matches.length > 0) return { apt: matches[0], method: 'City Match' };
+  // Fallback
+  if (!dbLoaded) await dbLoadPromise;
+  const matches = DB.filter(a => a.city.toLowerCase() === ql || a.name.toLowerCase() === ql);
+  if (matches.length > 0) return { apt: matches[0], method: 'City Fallback' };
+
   return null;
 }
