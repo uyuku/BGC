@@ -1,3 +1,4 @@
+https://bettergreatcircle.pages.dev (use WARP, or vpn to access the site, Turkey has blocked pages domains)
 Better Great Circle
 
 A single-page web application for calculating air, sea, and road distances
