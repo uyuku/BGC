@@ -4,10 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Better Great Circle</title>
-  <link rel="stylesheet" href="/src/styles/main.css" />
+
   <!-- Jelly UI CDN -->
   <script type="module" src="https://jelly-ui.com/package.js"></script>
   <link href="https://unpkg.com/maplibre-gl@5.2.0/dist/maplibre-gl.css" rel="stylesheet" />
+  
+  <!-- CSS Styles -->
+  <link rel="stylesheet" href="/src/styles/main.css" />
 </head>
 <body>
 
@@ -22,7 +25,7 @@
 
       <jelly-divider></jelly-divider>
 
-      <!-- AIR DISTANCE -->
+      <!-- AIR DISTANCE CALCULATOR -->
       <section class="section">
         <div class="section-header">
           <jelly-chip size="small" variant="azure">Air distance</jelly-chip>
@@ -58,7 +61,7 @@
         </main>
       </section>
 
-      <!-- SEA ROUTE -->
+      <!-- SEA ROUTE CALCULATOR -->
       <section class="section">
         <div class="section-header">
           <jelly-chip size="small" variant="azure">Sea route</jelly-chip>
@@ -102,7 +105,7 @@
         </jelly-card>
       </section>
 
-      <!-- ROAD DISTANCE -->
+      <!-- ROAD DISTANCE CALCULATOR -->
       <section class="section">
         <div class="section-header">
           <jelly-chip size="small" variant="amber">Road distance</jelly-chip>
@@ -135,7 +138,7 @@
         </main>
       </section>
 
-      <!-- ROUTE MAP -->
+      <!-- ROUTE MAP & NAUTICAL CHART -->
       <section class="section">
         <div class="section-header">
           <jelly-chip size="small" variant="azure">Route Map & OpenSeaMap Nautical Chart</jelly-chip>
@@ -157,7 +160,7 @@
         </jelly-card>
       </section>
 
-      <!-- BATCH XLSX -->
+      <!-- BATCH XLSX CALCULATOR -->
       <section class="section">
         <div class="section-header">
           <jelly-chip size="small" variant="mint">Batch calculator (.xlsx)</jelly-chip>
@@ -181,8 +184,9 @@
             </jelly-button>
           </div>
         </jelly-card>
+      </section>
 
-      </div>
+    </div>
   </jelly-theme>
 
   <script type="module" src="/src/main.js"></script>
