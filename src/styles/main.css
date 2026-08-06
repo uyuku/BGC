@@ -12,7 +12,6 @@ html, body {
   overflow-x: hidden;
 }
 
-/* Jelly UI ve Belirgin Pastel Arka Plan Katmanı */
 body, jelly-theme {
   min-height: 100vh;
   width: 100%;
@@ -47,6 +46,33 @@ body {
   --jelly-color-border-default:              #dde8f0;
   --jelly-color-border-focus:                #6aa8d8;
 }
+
+/* Yerel Mobil Uyumlu Jelly Buton Stilleri */
+.jelly-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 10px;
+  background: var(--jelly-color-background-accent);
+  color: var(--jelly-color-foreground-on-accent);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.05s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.jelly-btn:hover { filter: brightness(1.05); }
+.jelly-btn:active { transform: scale(0.98); }
+.jelly-btn.azure { background: var(--jelly-color-background-azure); color: #1f2f3d; }
+.jelly-btn.mint { background: var(--jelly-color-background-mint); color: #1f2f3d; }
 
 .wrapper {
   width: 100%;
@@ -287,7 +313,6 @@ jelly-input {
 
 .batch-status.error { color: #c0546a; }
 
-/* Mobil Ekran İyileştirmeleri */
 @media (max-width: 600px) {
   body {
     padding: 1.2rem 0.5rem;
@@ -305,7 +330,7 @@ jelly-input {
     flex-direction: column;
   }
 
-  .batch-actions jelly-button {
+  .batch-actions .jelly-btn {
     width: 100%;
   }
-}
+    }
