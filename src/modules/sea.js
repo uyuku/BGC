@@ -10,7 +10,8 @@ export async function processSeaRoute(origText, destText, viaText = '', draftInp
     return { r1, r2, rVia, feature: null, km: null };
   }
 
-  const vesselDraftMeters = draftInput && !isNaN(+draftInput) && +draftInput > 0 ? +draftInput : 14;
+  // Kiel Kanalı limiti 7.0m olduğu için boş bırakılınca varsayılanı 6.5m yapıyoruz.
+  const vesselDraftMeters = draftInput && !isNaN(+draftInput) && +draftInput > 0 ? +draftInput : 6.5;
 
   try {
     let feature;
