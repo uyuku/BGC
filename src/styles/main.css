@@ -105,14 +105,16 @@ jelly-input {
   border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
   padding-top: 0.75rem;
   font-size: 0.8rem;
-  opacity: 0.8;
+  opacity: 0.85;
   line-height: 1.4;
+  min-height: 2.8rem;
 }
 
 .meta-title {
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   opacity: 1;
+  color: var(--jelly-color-foreground-default);
 }
 
 .meta-hint {
@@ -142,6 +144,19 @@ jelly-input {
   font-size: 2.2rem;
   font-weight: 900;
   font-family: var(--jelly-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  letter-spacing: normal;
+  line-height: 1.2;
+}
+
+.dist-unit {
+  font-size: 1.4rem;
+  font-weight: 700;
+  opacity: 0.85;
 }
 
 .dist-sub {
