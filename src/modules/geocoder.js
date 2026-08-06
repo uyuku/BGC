@@ -22,7 +22,9 @@ export async function loadDB(statusBadgeEl) {
           mil: MILITARY_RE.test(a.name || '')
         };
         DB.push(item);
-        if (a.iata && a.iata.length === 3) IATA[a.iata.toUpperCase()] = item;
+        if (a.iata && a.iata.length === 3) {
+          IATA[a.iata.toUpperCase()] = item;
+        }
       }
     }
     if (statusBadgeEl) statusBadgeEl.style.display = 'none';
@@ -69,6 +71,9 @@ export async function geocodeNominatim(query) {
 
 export async function resolveLocation(query) {
   if (!query || !query.trim()) return null;
+
+  if (!dbLoaded) await dbLoadPromise;
+
   const rawQ = query.trim();
   const q = rawQ.toUpperCase();
   const ql = rawQ.toLowerCase();
@@ -114,6 +119,7 @@ export async function resolveLocation(query) {
   const geo = await geocodeNominatim(rawQ);
   if (geo && geo.length) {
     const tLat = +geo[0].lat, tLon = +geo[0].lon;
+
     let best = null, minDist = Infinity;
     for (let i = 0; i < DB.length; i++) {
       if (DB[i].iata && DB[i].iata.length === 3 && (!DB[i].mil || wantsMilitary)) {
@@ -135,4 +141,15 @@ export async function resolveLocation(query) {
 
   if (matches.length > 0) return { apt: matches[0], method: 'City Match' };
   return null;
+}
+
+export function describeLocation(r, defaultMessage = 'Type a location above') {
+  if (!r) return `<em>${defaultMessage}</em>`;
+  if (r.apt) {
+    return `<div class="meta-title">${r.apt.name} (${r.apt.iata || 'GEO'})</div><div>${r.apt.city ? r.apt.city + ', ' : ''}${r.apt.country}</div>`;
+  }
+  if (r.blocked) {
+    return `<div class="meta-hint">Military location hidden, add "military" to show it</div>`;
+  }
+  return '<div>Location unknown</div>';
 }
