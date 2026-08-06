@@ -2,10 +2,12 @@ import { seaRoute } from 'searoute-ts';
 import { resolveLocation } from './geocoder.js';
 
 export async function processSeaRoute(origText, destText) {
-  const r1 = await resolveLocation(origText);
-  const r2 = await resolveLocation(destText);
+  const r1 = await resolveLocation(origText, 'sea');
+  const r2 = await resolveLocation(destText, 'sea');
 
-  if (!(r1 && r1.apt && r2 && r2.apt)) return null;
+  if (!(r1 && r1.apt && r2 && r2.apt)) {
+    return { r1, r2, feature: null, km: null };
+  }
 
   try {
     const feature = seaRoute(
@@ -15,6 +17,6 @@ export async function processSeaRoute(origText, destText) {
     );
     return { r1, r2, feature, km: feature.properties.length };
   } catch (e) {
-    return { r1, r2, feature: null, km: null, error: e.message };
+    return { r1, r2, feature: null, km: null, error: e.message || 'No sea route found' };
   }
 }
