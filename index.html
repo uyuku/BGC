@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Better Great Circle</title>
+
+  <!-- Jelly UI Entry Point -->
+  <script type="module" src="https://jelly-ui.com/package.js"></script>
+
+  <!-- MapLibre GL JS -->
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--jelly-font-text, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);
+    }
+
+    html, body {
+      min-height: 100vh;
+    }
+
+    /*
+     * Pastel palette override for Jelly UI.
+     */
+    :root {
+      --jelly-color-background-default:          #f3f7fb;
+      --jelly-color-background-surface:          #ffffff;
+      --jelly-color-background-muted:            #eef4f9;
+      --jelly-color-background-neutral:          #e4edf3;
+      --jelly-color-background-neutral-emphasis: #a9c2d3;
+      --jelly-color-background-rose:             #f7c1cc;
+      --jelly-color-background-amber:            #f6d9a8;
+      --jelly-color-background-azure:            #bfe0f5;
+      --jelly-color-background-mint:             #a9e6c8;
+      --jelly-color-background-accent:           #8fc7e8;
+      --jelly-color-foreground-default:          #263646;
+      --jelly-color-foreground-muted:            #6c7f90;
+      --jelly-color-foreground-on-emphasis:      #1f2f3d;
+      --jelly-color-foreground-on-neutral:       #263646;
+      --jelly-color-foreground-on-white:         #263646;
+      --jelly-color-foreground-on-accent:        #1f2f3d;
+      --jelly-color-border-default:              #dde8f0;
+      --jelly-color-border-focus:                #6aa8d8;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      background: linear-gradient(160deg, #f3f7fb 0%, #eef8f3 100%);
+      color: var(--jelly-color-foreground-default);
+    }
+
+    .wrapper {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+
+    .header {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .title {
+      font-size: 2.5rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+
+    .section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      opacity: 0.55;
+      font-weight: 800;
+      padding-left: 0.1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (min-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr 280px 1fr;
+      }
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 0.25rem;
+    }
+
+    .right-align {
+      text-align: right;
+      --jelly-input-text-align: right;
+    }
+
+    jelly-input {
+      width: 100%;
+    }
+
+    .meta {
+      border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+      padding-top: 0.75rem;
+      font-size: 0.8rem;
+      opacity: 0.8;
+      line-height: 1.4;
+    }
+
+    .meta-title {
+      font-weight: 700;
+      font-size: 0.9rem;
+      opacity: 1;
+    }
+
+    .meta-hint {
+      opacity: 0.75;
+      font-style: italic;
+    }
+
+    .center-card {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 1rem;
+    }
+
+    .dist-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      opacity: 0.6;
+      font-weight: 700;
+    }
+
+    .dist-value {
+      font-size: 2.2rem;
+      font-weight: 900;
+      font-family: var(--jelly-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+    }
+
+    .dist-sub {
+      font-size: 0.78rem;
+      opacity: 0.75;
+      font-weight: 500;
+    }
+
+    .passages-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.35rem;
+      margin-top: 0.4rem;
+    }
+
+    .detour-tick {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+
+    .map-controls-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.78rem;
+      padding: 0 0.2rem;
+    }
+
+    .map-legend {
+      display: flex;
+      gap: 1.25rem;
+      opacity: 0.85;
+    }
+
+    .map-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .map-legend .swatch {
+      width: 18px;
+      height: 3px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    #map {
+      width: 100%;
+      height: 440px;
+      border-radius: 12px;
+      overflow: hidden;
+      filter: saturate(0.65) brightness(1.05) contrast(0.95);
+    }
+
+    .maplibregl-ctrl-attrib {
+      font-size: 0.65rem;
+    }
+  </style>
+</head>
+<body>
+
+  <jelly-theme mode="light" accent="#8fc7e8">
+    <div class="wrapper">
+
+      <!-- HEADER -->
+      <header class="header">
+        <jelly-badge id="statusBadge" variant="graphite">Connecting...</jelly-badge>
+        <h1 class="title">Better Great Circle</h1>
+      </header>
+
+      <!-- AIR DISTANCE CALCULATOR -->
+      <section class="section">
+        <div class="section-label">✈ Air distance</div>
+        <main class="grid">
+
+          <!-- DEPARTURE CARD -->
+          <jelly-card>
+            <div class="panel">
+              <jelly-label>Departure</jelly-label>
+              <jelly-input id="orig" name="orig" placeholder="IATA, CITY, COUNTRY..."></jelly-input>
+              <div class="meta" id="origMeta"><em>Type an origin above</em></div>
+            </div>
+          </jelly-card>
+
+          <!-- CENTER DISPLAY CARD -->
+          <jelly-card>
+            <div class="center-card">
+              <div class="dist-title">Air Distance</div>
+              <div class="dist-value" id="dist">-- km</div>
+              <div class="dist-sub" id="route">Awaiting input</div>
+              <label class="detour-tick">
+                <jelly-switch id="detourToggle" size="small" variant="azure"></jelly-switch>
+                +8% detour
+              </label>
+            </div>
+          </jelly-card>
+
+          <!-- ARRIVAL CARD -->
+          <jelly-card>
+            <div class="panel">
+              <jelly-label class="right-align">Arrival</jelly-label>
+              <jelly-input id="dest" name="dest" placeholder="IATA, CITY, COUNTRY..." class="right-align"></jelly-input>
+              <div class="meta right-align" id="destMeta"><em>Type a destination above</em></div>
+            </div>
+          </jelly-card>
+
+        </main>
+      </section>
+
+      <!-- SEA ROUTE CALCULATOR -->
+      <section class="section">
+        <div class="section-label">🚢 Sea route (Eurostat Maritime Network)</div>
+        <main class="grid">
+
+          <!-- SEA DEPARTURE CARD -->
+          <jelly-card>
+            <div class="panel">
+              <jelly-label>Departure Port / City</jelly-label>
+              <jelly-input id="seaOrig" name="seaOrig" placeholder="CITY, COUNTRY..."></jelly-input>
+              <div class="meta" id="seaOrigMeta"><em>Type a city or country above</em></div>
+            </div>
+          </jelly-card>
+
+          <!-- SEA CENTER DISPLAY CARD -->
+          <jelly-card>
+            <div class="center-card">
+              <div class="dist-title">Sea Passage Distance</div>
+              <div class="dist-value" id="seaDist">-- km</div>
+              <div class="dist-sub" id="seaDuration">-- NM · -- h</div>
+              <div class="dist-sub" id="seaRoute" style="font-size: 0.74rem; margin-top: 0.15rem;">Awaiting input</div>
+
+              <div class="passages-container" id="seaPassages"></div>
+            </div>
+          </jelly-card>
+
+          <!-- SEA ARRIVAL CARD -->
+          <jelly-card>
+            <div class="panel">
+              <jelly-label class="right-align">Arrival Port / City</jelly-label>
+              <jelly-input id="seaDest" name="seaDest" placeholder="CITY, COUNTRY..." class="right-align"></jelly-input>
+              <div class="meta right-align" id="seaDestMeta"><em>Type a destination above</em></div>
+            </div>
+          </jelly-card>
+
+        </main>
+      </section>
+
+      <!-- ROUTE MAP & NAUTICAL CHART -->
+      <section class="section">
+        <div class="section-label">🗺 Route Map & OpenSeaMap Nautical Chart</div>
+        <div class="map-controls-bar">
+          <div class="map-legend">
+            <span><i class="swatch" style="background:#4f8fc4"></i>Air (great circle)</span>
+            <span><i class="swatch" style="background:#0284c7"></i>Sea route</span>
+          </div>
+
+          <label class="detour-tick">
+            <jelly-switch id="nauticalOverlayToggle" size="small" variant="mint" checked></jelly-switch>
+            Show OpenSeaMap Seamarks
+          </label>
+        </div>
+        <jelly-card>
+          <div id="map"></div>
+        </jelly-card>
+      </section>
+
+    </div>
+  </jelly-theme>
+
+  <script>
+    // ================= SEAROUTE LIBRARY LOADER =================
+    let searoutePromise = null;
+    async function loadSearouteEngine() {
+      if (searoutePromise) return searoutePromise;
+
+      searoutePromise = (async () => {
+        try {
+          const mod = await import('https://esm.sh/searoute-ts@2.2.0');
+          if (mod && (mod.seaRoute || mod.default)) return mod.seaRoute || mod.default;
+        } catch (e1) {}
+
+        try {
+          const mod = await import('https://cdn.jsdelivr.net/npm/searoute-ts@2.2.0/+esm');
+          if (mod && (mod.seaRoute || mod.default)) return mod.seaRoute || mod.default;
+        } catch (e2) {}
+
+        throw new Error('Could not load searoute-ts library');
+      })();
+
+      return searoutePromise;
+    }
+
+    // ================= MAP LOGIC =================
+    let map = null, mapReady = false;
+    let lastAirLine = null, lastSeaLine = null;
+    let airMarkerFeatures = [], seaMarkerFeatures = [];
+
+    function emptyFC() { return { type: 'FeatureCollection', features: [] }; }
+
+    function greatCircleFeature(lon1, lat1, lon2, lat2, steps = 96) {
+      const toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
+      const phi1 = toRad(lat1), lam1 = toRad(lon1), phi2 = toRad(lat2), lam2 = toRad(lon2);
+      const d = 2 * Math.asin(Math.sqrt(Math.sin((phi2 - phi1) / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin((lam2 - lam1) / 2) ** 2));
+      const coords = [];
+      if (d === 0) {
+        coords.push([lon1, lat1]);
+      } else {
+        for (let i = 0; i <= steps; i++) {
+          const f = i / steps;
+          const A = Math.sin((1 - f) * d) / Math.sin(d);
+          const B = Math.sin(f * d) / Math.sin(d);
+          const x = A * Math.cos(phi1) * Math.cos(lam1) + B * Math.cos(phi2) * Math.cos(lam2);
+          const y = A * Math.cos(phi1) * Math.sin(lam1) + B * Math.cos(phi2) * Math.sin(lam2);
+          const z = A * Math.sin(phi1) + B * Math.sin(phi2);
+          coords.push([toDeg(Math.atan2(y, x)), toDeg(Math.atan2(z, Math.sqrt(x * x + y * y)))]);
+        }
+      }
+      const segments = [[coords[0]]];
+      for (let i = 1; i < coords.length; i++) {
+        if (Math.abs(coords[i][0] - coords[i - 1][0]) > 180) segments.push([]);
+        segments[segments.length - 1].push(coords[i]);
+      }
+      const geometry = segments.length > 1
+        ? { type: 'MultiLineString', coordinates: segments }
+        : { type: 'LineString', coordinates: segments[0] };
+      return { type: 'Feature', properties: {}, geometry };
+    }
+
+    function cleanSeaRouteFeature(feature) {
+      if (!feature || !feature.geometry) return null;
+
+      let rawSegments = [];
+      if (feature.geometry.type === 'LineString') {
+        rawSegments.push(feature.geometry.coordinates);
+      } else if (feature.geometry.type === 'MultiLineString') {
+        rawSegments = feature.geometry.coordinates;
+      }
+
+      const processedSegments = [];
+      rawSegments.forEach(coords => {
+        if (!coords || coords.length < 2) return;
+        let currentSeg = [coords[0]];
+        for (let i = 1; i < coords.length; i++) {
+          if (Math.abs(coords[i][0] - coords[i - 1][0]) > 180) {
+            if (currentSeg.length > 1) processedSegments.push(currentSeg);
+            currentSeg = [];
+          }
+          currentSeg.push(coords[i]);
+        }
+        if (currentSeg.length > 1) processedSegments.push(currentSeg);
+      });
+
+      const geometry = processedSegments.length > 1
+        ? { type: 'MultiLineString', coordinates: processedSegments }
+        : { type: 'LineString', coordinates: processedSegments[0] || [] };
+
+      return {
+        type: 'Feature',
+        properties: feature.properties || {},
+        geometry
+      };
+    }
+
+    function markerFeature(lon, lat, kind, label) {
+      return { type: 'Feature', properties: { kind, label }, geometry: { type: 'Point', coordinates: [lon, lat] } };
+    }
+
+    function initMap() {
+      const mapEl = document.getElementById('map');
+      
+      map = new maplibregl.Map({
+        container: 'map',
+        style: 'https://demotiles.maplibre.org/style.json',
+        center: [20, 25],
+        zoom: 1
+      });
+
+      const ro = new ResizeObserver(() => {
+        if (map) map.resize();
+      });
+      ro.observe(mapEl);
+
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+      
+      map.on('load', () => {
+        map.resize();
+
+        map.addSource('openseamark', {
+          type: 'raster',
+          tiles: ['https://tiles.openseamark.org/seamark/{z}/{x}/{y}.png'],
+          tileSize: 256
+        });
+        map.addLayer({
+          id: 'openseamark-layer',
+          type: 'raster',
+          source: 'openseamark',
+          minzoom: 2,
+          maxzoom: 18,
+          paint: { 'raster-opacity': 0.85 }
+        });
+
+        map.addSource('air-line', { type: 'geojson', data: lastAirLine || emptyFC() });
+        map.addSource('sea-line', { type: 'geojson', data: lastSeaLine || emptyFC() });
+        map.addSource('markers', { type: 'geojson', data: { type: 'FeatureCollection', features: [...airMarkerFeatures, ...seaMarkerFeatures] } });
+
+        map.addLayer({
+          id: 'sea-line-layer',
+          type: 'line',
+          source: 'sea-line',
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: { 'line-color': '#0284c7', 'line-width': 3.5, 'line-opacity': 0.95 }
+        });
+
+        map.addLayer({
+          id: 'air-line-layer',
+          type: 'line',
+          source: 'air-line',
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: { 'line-color': '#4f8fc4', 'line-width': 2.5, 'line-dasharray': [2, 2] }
+        });
+
+        map.addLayer({
+          id: 'marker-dots', type: 'circle', source: 'markers',
+          paint: {
+            'circle-radius': 6,
+            'circle-color': ['match', ['get', 'kind'], 'air', '#4f8fc4', 'sea', '#0284c7', '#888888'],
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff'
+          }
+        });
+
+        map.addLayer({
+          id: 'marker-labels', type: 'symbol', source: 'markers',
+          layout: { 'text-field': ['get', 'label'], 'text-size': 11, 'text-offset': [0, 1.3], 'text-anchor': 'top' },
+          paint: { 'text-color': '#263646', 'text-halo-color': '#ffffff', 'text-halo-width': 1.4 }
+        });
+
+        mapReady = true;
+        fitMapToAll();
+      });
+    }
+
+    function toggleNauticalOverlay() {
+      if (!mapReady) return;
+      const enabled = document.getElementById('nauticalOverlayToggle').checked;
+      map.setLayoutProperty('openseamark-layer', 'visibility', enabled ? 'visible' : 'none');
+    }
+
+    function collectBoundsCoords() {
+      const coords = [];
+      const addGeom = g => {
+        if (!g) return;
+        if (g.type === 'LineString') coords.push(...g.coordinates);
+        else if (g.type === 'MultiLineString') g.coordinates.forEach(seg => coords.push(...seg));
+      };
+      addGeom(lastAirLine && lastAirLine.geometry);
+      addGeom(lastSeaLine && lastSeaLine.geometry);
+      airMarkerFeatures.forEach(f => coords.push(f.geometry.coordinates));
+      seaMarkerFeatures.forEach(f => coords.push(f.geometry.coordinates));
+      return coords;
+    }
+
+    function fitMapToAll() {
+      if (!mapReady) return;
+      map.resize();
+      const coords = collectBoundsCoords();
+      if (!coords.length) return;
+      let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+      coords.forEach(([lon, lat]) => {
+        minLon = Math.min(minLon, lon); maxLon = Math.max(maxLon, lon);
+        minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+      });
+      map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 50, maxZoom: 6, duration: 600 });
+    }
+
+    function refreshMapSources() {
+      if (!mapReady) return;
+      map.getSource('air-line').setData(lastAirLine || emptyFC());
+      map.getSource('sea-line').setData(lastSeaLine || emptyFC());
+      map.getSource('markers').setData({ type: 'FeatureCollection', features: [...airMarkerFeatures, ...seaMarkerFeatures] });
+    }
+
+    // ================= DATA & RESOLUTION =================
+    let DB = [], IATA = {};
+
+    const MILITARY_RE = /(air force base|naval air station|naval station|marine corps air station|army airfield|army air field|joint base|coast guard air station|coast guard station|\bmcas\b|\bnas\b|\bnaws\b|\braf\b|\bafb\b|air base|airbase|\bmilitary\b)/i;
+    const MILITARY_INTENT_RE = /\b(military|air force|afb|raf|navy|naval|army|marine corps|mcas|joint base|air base|airbase|coast guard)\b/i;
+
+    function queryWantsMilitary(query) {
+      return MILITARY_INTENT_RE.test(query || '');
+    }
+
+    async function loadDB() {
+      const badge = document.getElementById('statusBadge');
+      try {
+        const res = await fetch('https://cdn.jsdelivr.net/gh/mwgg/Airports@master/airports.json');
+        const data = await res.json();
+        for (const [icao, a] of Object.entries(data)) {
+          if (a.lat && a.lon) {
+            const item = {
+              iata: a.iata || '',
+              name: a.name || '',
+              city: a.city || '',
+              country: a.country || '',
+              lat: +a.lat,
+              lon: +a.lon,
+              mil: MILITARY_RE.test(a.name || '')
+            };
+            DB.push(item);
+            if (a.iata && a.iata.length === 3) IATA[a.iata.toUpperCase()] = item;
+          }
+        }
+        badge.style.display = 'none';
+        airRun();
+        seaRun();
+      } catch (e) {
+        badge.setAttribute('variant', 'rose');
+        badge.textContent = 'Offline';
+      }
+    }
+
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    async function resolve(query) {
+      if (!query || !query.trim()) return null;
+      const q = query.trim().toUpperCase();
+      const wantsMilitary = queryWantsMilitary(query);
+
+      if (q.length === 3 && IATA[q]) {
+        const apt = IATA[q];
+        if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
+        return { apt, method: 'IATA Match' };
+      }
+
+      const ql = query.trim().toLowerCase();
+      const direct = DB.find(a => a.iata && (!a.mil || wantsMilitary) && (a.city.toLowerCase() === ql || a.name.toLowerCase() === ql));
+      if (direct) return { apt: direct, method: 'City Match' };
+
+      if (!wantsMilitary) {
+        const blockedDirect = DB.find(a => a.iata && a.mil && (a.city.toLowerCase() === ql || a.name.toLowerCase() === ql));
+        if (blockedDirect) return { apt: null, blocked: true };
+      }
+
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
+          headers: { 'Accept-Language': 'en' }
+        });
+        const geo = await res.json();
+        if (geo && geo.length) {
+          const tLat = +geo[0].lat, tLon = +geo[0].lon;
+          let best = null, minDist = Infinity;
+          for (let i = 0; i < DB.length; i++) {
+            if (DB[i].iata && DB[i].iata.length === 3 && (!DB[i].mil || wantsMilitary)) {
+              const d = haversine(tLat, tLon, DB[i].lat, DB[i].lon);
+              if (d < minDist) { minDist = d; best = DB[i]; }
+            }
+          }
+          if (best) return { apt: best, method: 'Geocoded Hub' };
+        }
+      } catch (err) {}
+
+      return null;
+    }
+
+    function describe(r, el) {
+      if (r && r.apt) {
+        el.innerHTML = `<div class="meta-title">${r.apt.name} (${r.apt.iata})</div><div>${r.apt.city ? r.apt.city + ', ' : ''}${r.apt.country}</div>`;
+      } else if (r && r.blocked) {
+        el.innerHTML = `<div class="meta-hint">Military airfield hidden — add "military" (or AFB / RAF / etc.) to show it</div>`;
+      } else {
+        el.innerHTML = '<div>Location unknown</div>';
+      }
+    }
+
+    function describeSea(r, el) {
+      if (r && r.apt) {
+        const place = r.apt.city || r.apt.name;
+        el.innerHTML = `<div class="meta-title">${place}${r.apt.country ? ', ' + r.apt.country : ''}</div><div style="opacity:0.65">coastal anchor point</div>`;
+      } else if (r && r.blocked) {
+        el.innerHTML = `<div class="meta-hint">Military location hidden — add "military" to show it</div>`;
+      } else {
+        el.innerHTML = '<div>Location unknown</div>';
+      }
+    }
+
+    // ================= AIR CALCULATOR =================
+    let rawKm = null;
+
+    function updateAirDisplay() {
+      const distEl = document.getElementById('dist');
+      const detourOn = document.getElementById('detourToggle').checked;
+      if (rawKm == null) {
+        distEl.textContent = '-- km';
+        return;
+      }
+      const km = detourOn ? rawKm * 1.08 : rawKm;
+      distEl.textContent = `${Math.round(km).toLocaleString()} km${detourOn ? ' *' : ''}`;
+    }
+
+    let airTimer = null;
+    async function airRun() {
+      const oVal = document.getElementById('orig').value || '';
+      const dVal = document.getElementById('dest').value || '';
+      const oEl = document.getElementById('origMeta');
+      const dEl = document.getElementById('destMeta');
+
+      oEl.innerHTML = '<span style="opacity:0.5">Resolving...</span>';
+      dEl.innerHTML = '<span style="opacity:0.5">Resolving...</span>';
+
+      const r1 = await resolve(oVal);
+      const r2 = await resolve(dVal);
+
+      describe(r1, oEl);
+      describe(r2, dEl);
+
+      if (r1 && r1.apt && r2 && r2.apt) {
+        rawKm = haversine(r1.apt.lat, r1.apt.lon, r2.apt.lat, r2.apt.lon);
+        document.getElementById('route').textContent = `${r1.apt.iata} → ${r2.apt.iata}`;
+        
+        lastAirLine = greatCircleFeature(r1.apt.lon, r1.apt.lat, r2.apt.lon, r2.apt.lat);
+        airMarkerFeatures = [
+          markerFeature(r1.apt.lon, r1.apt.lat, 'air', r1.apt.iata),
+          markerFeature(r2.apt.lon, r2.apt.lat, 'air', r2.apt.iata)
+        ];
+      } else {
+        rawKm = null;
+        document.getElementById('route').textContent = 'Invalid location input';
+        lastAirLine = null;
+        airMarkerFeatures = [];
+      }
+
+      updateAirDisplay();
+      refreshMapSources();
+      fitMapToAll();
+    }
+
+    // ================= SEA ROUTE CALCULATOR =================
+    let seaTimer = null;
+    async function seaRun() {
+      const oVal = document.getElementById('seaOrig').value || '';
+      const dVal = document.getElementById('seaDest').value || '';
+      const oEl = document.getElementById('seaOrigMeta');
+      const dEl = document.getElementById('seaDestMeta');
+      const distEl = document.getElementById('seaDist');
+      const durationEl = document.getElementById('seaDuration');
+      const routeEl = document.getElementById('seaRoute');
+      const passagesEl = document.getElementById('seaPassages');
+
+      oEl.innerHTML = '<span style="opacity:0.5">Resolving...</span>';
+      dEl.innerHTML = '<span style="opacity:0.5">Resolving...</span>';
+
+      const r1 = await resolve(oVal);
+      const r2 = await resolve(dVal);
+
+      describeSea(r1, oEl);
+      describeSea(r2, dEl);
+
+      if (!(r1 && r1.apt && r2 && r2.apt)) {
+        distEl.textContent = '-- km';
+        durationEl.textContent = '-- NM · -- h';
+        routeEl.textContent = 'Invalid location input';
+        passagesEl.innerHTML = '';
+        lastSeaLine = null;
+        seaMarkerFeatures = [];
+        refreshMapSources();
+        fitMapToAll();
+        return;
+      }
+
+      const oPlace = r1.apt.city || r1.apt.name;
+      const dPlace = r2.apt.city || r2.apt.name;
+      routeEl.textContent = `${oPlace} → ${dPlace} · calculating...`;
+      distEl.textContent = '...';
+
+      seaMarkerFeatures = [
+        markerFeature(r1.apt.lon, r1.apt.lat, 'sea', oPlace),
+        markerFeature(r2.apt.lon, r2.apt.lat, 'sea', dPlace)
+      ];
+
+      try {
+        const seaRouteFn = await loadSearouteEngine();
+        const speedKnots = 22;
+        const draftMeters = 14;
+
+        // Calculate sea route with exact VesselFinder / Searoute options
+        const rawFeature = seaRouteFn(
+          [r1.apt.lon, r1.apt.lat],
+          [r2.apt.lon, r2.apt.lat],
+          {
+            units: 'kilometers',
+            vesselDraftMeters: draftMeters,
+            speedKnots: speedKnots,
+            returnPassages: true
+          }
+        );
+
+        if (!rawFeature) {
+          distEl.textContent = '-- km';
+          durationEl.textContent = '-- h';
+          routeEl.textContent = `${oPlace} → ${dPlace} · no sea route (landlocked)`;
+          passagesEl.innerHTML = '';
+          lastSeaLine = null;
+        } else {
+          const km = rawFeature.properties.length;
+          const nm = km / 1.852;
+          const hours = km / (speedKnots * 1.852);
+          const days = hours / 24;
+
+          distEl.textContent = `${Math.round(km).toLocaleString()} km`;
+          durationEl.textContent = `${Math.round(nm).toLocaleString()} NM · ${Math.round(hours)} h (${days.toFixed(1)} DAYS @ ${speedKnots} KN)`;
+
+          const gcKm = haversine(r1.apt.lat, r1.apt.lon, r2.apt.lat, r2.apt.lon);
+          const detour = (km / gcKm).toFixed(2);
+          routeEl.textContent = `${oPlace} → ${dPlace} · Great Circle: ${Math.round(gcKm).toLocaleString()} km (Detour ${detour}x)`;
+
+          const passages = rawFeature.properties.passages || rawFeature.properties.traversedPassages || rawFeature.properties.chokepoints || [];
+          if (Array.isArray(passages) && passages.length > 0) {
+            passagesEl.innerHTML = passages.map(p => `<jelly-badge variant="azure">${p}</jelly-badge>`).join(' ');
+          } else {
+            passagesEl.innerHTML = '';
+          }
+
+          lastSeaLine = cleanSeaRouteFeature(rawFeature);
+        }
+      } catch (err) {
+        distEl.textContent = '-- km';
+        durationEl.textContent = '-- h';
+        routeEl.textContent = 'Unable to calculate sea route';
+        passagesEl.innerHTML = '';
+        lastSeaLine = null;
+      }
+
+      refreshMapSources();
+      fitMapToAll();
+    }
+
+    // ================= LISTENERS & INIT =================
+    const onAirInput = () => { clearTimeout(airTimer); airTimer = setTimeout(airRun, 350); };
+    const onSeaInput = () => { clearTimeout(seaTimer); seaTimer = setTimeout(seaRun, 350); };
+
+    document.getElementById('orig').addEventListener('input', onAirInput);
+    document.getElementById('dest').addEventListener('input', onAirInput);
+    document.getElementById('detourToggle').addEventListener('change', updateAirDisplay);
+
+    document.getElementById('seaOrig').addEventListener('input', onSeaInput);
+    document.getElementById('seaDest').addEventListener('input', onSeaInput);
+    document.getElementById('nauticalOverlayToggle').addEventListener('change', toggleNauticalOverlay);
+
+    initMap();
+    loadDB();
+  </script>
+</body>
+</html>
