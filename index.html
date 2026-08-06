@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Better Great Circle</title>
 
-  <!-- SheetJS Standalone (Garanti Excel Kütüphanesi) -->
+  <!-- SheetJS Standalone Excel Library -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
   <!-- Jelly UI CDN -->
@@ -182,20 +182,20 @@
               Choose a template below. Upload your file to calculate <strong>air_km</strong>, <strong>sea_km</strong>, and <strong>road_km</strong> in bulk.
             </div>
             <div class="batch-actions">
-              <jelly-button size="small" variant="azure" id="btnTpl1">T1: Simple</jelly-button>
-              <jelly-button size="small" variant="azure" id="btnTpl2">T2: Split City/Country</jelly-button>
-              <jelly-button size="small" variant="azure" id="btnTpl3">T3: Vessel Draft</jelly-button>
-              <jelly-button size="small" variant="azure" id="btnTpl4">T4: Sea Waypoint</jelly-button>
-              <jelly-button size="small" variant="azure" id="btnTpl5">T5: Master Suite</jelly-button>
+              <button type="button" class="jelly-btn azure" id="btnTpl1">T1: Simple</button>
+              <button type="button" class="jelly-btn azure" id="btnTpl2">T2: Split City/Country</button>
+              <button type="button" class="jelly-btn azure" id="btnTpl3">T3: Vessel Draft</button>
+              <button type="button" class="jelly-btn azure" id="btnTpl4">T4: Sea Waypoint</button>
+              <button type="button" class="jelly-btn azure" id="btnTpl5">T5: Master Suite</button>
               <input type="file" id="batchFileInput" accept=".xlsx,.xls" style="display:none" />
-              <jelly-button size="small" variant="mint" id="batchChooseBtn">Choose file to process</jelly-button>
+              <label for="batchFileInput" class="jelly-btn mint" id="batchChooseBtn">Choose file to process</label>
             </div>
             <div class="batch-filename" id="batchFilename">or drag a .xlsx file here</div>
             <div class="batch-progress" id="batchProgress"></div>
             <div class="batch-status" id="batchStatus"></div>
-            <jelly-button size="medium" variant="mint" id="batchDownloadBtn" style="display:none;">
+            <button type="button" class="jelly-btn mint" id="batchDownloadBtn" style="display:none;">
               ⬇ Download completed file
-            </jelly-button>
+            </button>
           </div>
         </jelly-card>
       </section>
@@ -205,4 +205,4 @@
 
   <script type="module" src="/src/main.js"></script>
 </body>
-                </html>
+            </html>
