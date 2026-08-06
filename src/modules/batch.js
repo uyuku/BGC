@@ -3,41 +3,17 @@ import { processRoadRoute } from './road.js';
 import { processAirRoute } from './air.js';
 import { dbLoadPromise } from './geocoder.js';
 
-// SheetJS Nesnesini Garanti Getiren Yardımcı
+// Global XLSX nesnesini yakala
 function getXLSX() {
   if (typeof window !== 'undefined' && window.XLSX) return window.XLSX;
   return null;
 }
 
-// Safari ve Tüm Tarayıcılarda Engellenmeyen Base64 İndirici
-function saveWorkbook(wb, filename) {
-  try {
-    const XLSX = getXLSX();
-    if (!XLSX || !XLSX.write) {
-      alert('SheetJS Excel library is loading, please try again in a moment.');
-      return;
-    }
-
-    const b64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-    const dataUri = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + b64;
-
-    const a = document.createElement('a');
-    a.href = dataUri;
-    a.download = filename;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  } catch (err) {
-    alert('Download Error: ' + err.message);
-  }
-}
-
 export function downloadSampleTemplate(type = 'simple') {
   try {
     const XLSX = getXLSX();
-    if (!XLSX || !XLSX.utils) {
-      alert('Excel library not ready yet. Please refresh the page.');
+    if (!XLSX) {
+      alert('Excel library loading... Please wait a second and try again.');
       return;
     }
 
@@ -85,7 +61,8 @@ export function downloadSampleTemplate(type = 'simple') {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Routes');
     
-    saveWorkbook(wb, filename);
+    // SheetJS'in tüm tarayıcılarda desteklenen yerleşik kaydetme fonksiyonu
+    XLSX.writeFile(wb, filename);
   } catch (err) {
     alert('Template generation error: ' + err.message);
   }
@@ -99,18 +76,13 @@ function findColumnIndex(header, patterns) {
   return -1;
 }
 
-let batchDownloadBlobUrl = null;
-let batchDownloadFileName = '';
+let batchReadyWorkbook = null;
+let batchReadyFileName = '';
 
 export function triggerBatchDownload() {
-  if (batchDownloadBlobUrl) {
-    const a = document.createElement('a');
-    a.href = batchDownloadBlobUrl;
-    a.download = batchDownloadFileName;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  if (batchReadyWorkbook && batchReadyFileName) {
+    const XLSX = getXLSX();
+    if (XLSX) XLSX.writeFile(batchReadyWorkbook, batchReadyFileName);
   }
 }
 
@@ -130,7 +102,7 @@ export async function processBatchFile(file) {
 
   try {
     const XLSX = getXLSX();
-    if (!XLSX) throw new Error('SheetJS library is not loaded.');
+    if (!XLSX) throw new Error('Excel library not loaded.');
 
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array' });
@@ -224,10 +196,10 @@ export async function processBatchFile(file) {
 
     const newWs = XLSX.utils.aoa_to_sheet(rows);
     wb.Sheets[sheetName] = newWs;
-    const b64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-
-    batchDownloadBlobUrl = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + b64;
-    batchDownloadFileName = file.name.replace(/\.(xlsx|xls)$/i, '') + '_calculated.xlsx';
+    
+    // Download için dosyayı değişkende saklıyoruz
+    batchReadyWorkbook = wb;
+    batchReadyFileName = file.name.replace(/\.(xlsx|xls)$/i, '') + '_calculated.xlsx';
 
     if (downloadBtn) downloadBtn.style.display = 'inline-block';
     if (progressEl) progressEl.textContent = '';
