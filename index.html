@@ -95,12 +95,20 @@
         </main>
 
         <jelly-card>
-          <div class="panel" style="padding: 0.9rem 1rem;">
-            <jelly-label style="font-size: 0.72rem; opacity: 0.7;">
-              Via (optional) force the route through a waypoint.
-            </jelly-label>
-            <jelly-input id="seaVia" placeholder="e.g. Skagen, Denmark"></jelly-input>
-            <div class="meta" id="seaViaMeta" style="border-top: none; padding-top: 0;"></div>
+          <div class="panel" style="padding: 0.9rem 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+            <div style="flex: 2; min-width: 200px;">
+              <jelly-label style="font-size: 0.72rem; opacity: 0.7;">
+                Via Waypoint (optional - force route through a port/strait)
+              </jelly-label>
+              <jelly-input id="seaVia" placeholder="e.g. Skagen, Denmark"></jelly-input>
+              <div class="meta" id="seaViaMeta" style="border-top: none; padding-top: 0;"></div>
+            </div>
+            <div style="flex: 1; min-width: 150px;">
+              <jelly-label style="font-size: 0.72rem; opacity: 0.7;">
+                Vessel Draft in meters (optional)
+              </jelly-label>
+              <jelly-input id="seaDraft" type="number" placeholder="e.g. 14, 20 (default 14m)"></jelly-input>
+            </div>
           </div>
         </jelly-card>
       </section>
@@ -168,11 +176,14 @@
         <jelly-card>
           <div class="batch-dropzone" id="batchDropzone">
             <div class="batch-instructions">
-              Choose between a <strong>Simple Template</strong> or <strong>Detailed Template</strong>. Upload your file to calculate air, maritime, and driving distances in bulk.
+              Choose a template below. Upload your file to calculate <strong>air_km</strong>, <strong>sea_km</strong>, and <strong>road_km</strong> in bulk.
             </div>
             <div class="batch-actions">
-              <jelly-button size="small" variant="azure" id="btnTemplateSimple">Template 1: Simple</jelly-button>
-              <jelly-button size="small" variant="azure" id="btnTemplateDetailed">Template 2: Split Country/City</jelly-button>
+              <jelly-button size="small" variant="azure" id="btnTpl1">T1: Simple</jelly-button>
+              <jelly-button size="small" variant="azure" id="btnTpl2">T2: Split City/Country</jelly-button>
+              <jelly-button size="small" variant="azure" id="btnTpl3">T3: Vessel Draft</jelly-button>
+              <jelly-button size="small" variant="azure" id="btnTpl4">T4: Sea Waypoint</jelly-button>
+              <jelly-button size="small" variant="azure" id="btnTpl5">T5: Master Suite</jelly-button>
               <input type="file" id="batchFileInput" accept=".xlsx,.xls" style="display:none" />
               <jelly-button size="small" variant="mint" id="batchChooseBtn">Choose file to process</jelly-button>
             </div>
