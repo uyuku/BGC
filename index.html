@@ -311,7 +311,7 @@
 
       <!-- AIR DISTANCE CALCULATOR -->
       <section class="section">
-        <div class="section-label">✈ Air distance</div>
+        <div class="section-label"> Air distance</div>
         <main class="grid">
 
           <!-- DEPARTURE CARD -->
@@ -350,7 +350,7 @@
 
       <!-- SEA ROUTE CALCULATOR -->
       <section class="section">
-        <div class="section-label">🚢 Sea route (Eurostat Maritime Network)</div>
+        <div class="section-label"> Sea route</div>
         <main class="grid">
 
           <!-- SEA DEPARTURE CARD -->
@@ -388,7 +388,7 @@
         <jelly-card>
           <div class="panel" style="padding: 0.9rem 1rem;">
             <jelly-label style="font-size: 0.72rem; opacity: 0.7;">
-              Via (optional) — force the route through a waypoint.
+              Via (optional) force the route through a waypoint.
             </jelly-label>
             <jelly-input id="seaVia" name="seaVia" placeholder="e.g. Skagen, Denmark"></jelly-input>
             <div class="meta" id="seaViaMeta" style="border-top: none; padding-top: 0;"></div>
@@ -398,7 +398,7 @@
 
       <!-- ROAD DISTANCE CALCULATOR (KARA YOLU - OSRM) -->
       <section class="section">
-        <div class="section-label">🚗 Road distance (Karayolu - OSRM Routing)</div>
+        <div class="section-label"> Road distance </div>
         <main class="grid">
 
           <!-- ROAD DEPARTURE CARD -->
@@ -434,7 +434,7 @@
 
       <!-- ROUTE MAP & NAUTICAL CHART -->
       <section class="section">
-        <div class="section-label">🗺 Route Map & OpenSeaMap Nautical Chart</div>
+        <div class="section-label"> Route Map & OpenSeaMap Nautical Chart</div>
         <div class="map-controls-bar">
           <div class="map-legend">
             <span><i class="swatch" style="background:#4f8fc4"></i>Air (great circle)</span>
@@ -454,18 +454,18 @@
 
       <!-- BATCH XLSX CALCULATOR -->
       <section class="section">
-        <div class="section-label">📄 Batch calculator (.xlsx)</div>
+        <div class="section-label">Batch calculator (.xlsx)</div>
         <jelly-card>
           <div class="batch-dropzone" id="batchDropzone">
             <div class="batch-instructions">
-              Process multiple routes at once! Choose between a <strong>Simple Template</strong> (combined city/location) or a <strong>Detailed Template</strong> (split country & city columns). Upload your file and we'll calculate <strong>km</strong> (air), <strong>sea_km</strong> (maritime), and <strong>road_km</strong> (driving) for every row!
+              Choose between a <strong>Simple Template</strong> (combined city/location) or a <strong>Detailed Template</strong> (split country & city columns). Upload your file and it will calculate <strong>km</strong> (air), <strong>sea_km</strong> (maritime), and <strong>road_km</strong> (driving) for every row.
             </div>
             <div class="batch-actions">
               <button type="button" class="jelly-btn" onclick="downloadSampleTemplate('simple')">
-                📋 Template 1: Simple
+                 Template 1: Simple
               </button>
               <button type="button" class="jelly-btn" onclick="downloadSampleTemplate('detailed')">
-                📋 Template 2: Split Country/City
+                 Template 2: Split Country/City
               </button>
               <input type="file" id="batchFileInput" accept=".xlsx,.xls" style="display:none" />
               <label for="batchFileInput" class="jelly-btn mint" id="batchChooseBtn">Choose file to process</label>
@@ -1021,7 +1021,7 @@
       if (r && r.apt) {
         el.innerHTML = `<div class="meta-title">${r.apt.name} (${r.apt.iata || 'GEO'})</div><div>${r.apt.city ? r.apt.city + ', ' : ''}${r.apt.country}</div>`;
       } else if (r && r.blocked) {
-        el.innerHTML = `<div class="meta-hint">Military airfield hidden — add "military" to show it</div>`;
+        el.innerHTML = `<div class="meta-hint">Military airfield hidden add "military" to show it</div>`;
       } else {
         el.innerHTML = '<div>Location unknown</div>';
       }
@@ -1032,7 +1032,7 @@
         const place = r.apt.city || r.apt.name;
         el.innerHTML = `<div class="meta-title">${place}${r.apt.country ? ', ' + r.apt.country : ''}</div><div style="opacity:0.65">coastal anchor point</div>`;
       } else if (r && r.blocked) {
-        el.innerHTML = `<div class="meta-hint">Military location hidden — add "military" to show it</div>`;
+        el.innerHTML = `<div class="meta-hint">Military location hidden add "military" to show it</div>`;
       } else {
         el.innerHTML = '<div>Location unknown</div>';
       }
@@ -1125,7 +1125,7 @@
       if (viaVal.trim()) {
         viaEl.innerHTML = rVia && rVia.apt
           ? `<span style="opacity:0.6">via ${rVia.apt.city || rVia.apt.name}${rVia.apt.country ? ', ' + rVia.apt.country : ''}</span>`
-          : '<span class="meta-hint">Via location unknown — ignoring it</span>';
+          : '<span class="meta-hint">Via location unknown ignoring it</span>';
       }
 
       if (!(r1 && r1.apt && r2 && r2.apt)) {
@@ -1430,7 +1430,7 @@
         downloadBtn.style.display = 'inline-flex';
 
         progressEl.textContent = '';
-        statusEl.innerHTML = `<span>✓ ${ok} row${ok === 1 ? '' : 's'} calculated${failed ? `, ${failed} skipped/unresolved` : ''}</span>`;
+        statusEl.innerHTML = `<span> ${ok} row${ok === 1 ? '' : 's'} calculated${failed ? `, ${failed} skipped/unresolved` : ''}</span>`;
       } catch (err) {
         progressEl.textContent = '';
         statusEl.classList.add('error');
