@@ -1,31 +1,31 @@
 import './styles/main.css';
-import { loadDB } from './modules/geocoder.js';
+import { loadDB, resolveLocation } from './modules/geocoder.js';
 import { initMap, toggleNauticalOverlay, updateMapData } from './modules/map.js';
 import { processAirRoute } from './modules/air.js';
 import { processSeaRoute } from './modules/sea.js';
 import { processRoadRoute } from './modules/road.js';
 import { downloadSampleTemplate, processBatchFile, triggerBatchDownload } from './modules/batch.js';
 
-// Jelly UI Input elemanlarından değeri güvenle okuyan yardımcı fonksiyon
 function getInputValue(el) {
   if (!el) return '';
   return (el.value || el.getAttribute('value') || el.shadowRoot?.querySelector('input')?.value || '').trim();
 }
 
-// Kartların altındaki meta alanlarını güncelleyen yardımcı fonksiyon
-function updateMeta(elId, resPoint, defaultMsg) {
+function updateMeta(elId, resPoint, defaultMsg, mode = 'air') {
   const el = document.getElementById(elId);
   if (!el) return;
 
   if (resPoint && resPoint.apt) {
     const apt = resPoint.apt;
     const title = apt.name || apt.city;
-    const code = apt.iata ? ` (${apt.iata})` : '';
-    const location = [apt.city, apt.country].filter(Boolean).join(', ');
+    const code = (apt.iata && mode === 'air') ? ` (${apt.iata})` : '';
+    const location = [apt.city !== title ? apt.city : null, apt.country].filter(Boolean).join(', ');
+    const tag = mode === 'sea' ? '<span style="opacity:0.65; font-size:0.75rem;"> (Coastal / Port)</span>' :
+                mode === 'road' ? '<span style="opacity:0.65; font-size:0.75rem;"> (City / Address)</span>' : '';
 
     el.innerHTML = `
       <div class="meta-title">${title}${code}</div>
-      <div>${location}</div>
+      <div>${location}${tag}</div>
     `;
   } else if (resPoint && resPoint.blocked) {
     el.innerHTML = `<div class="meta-hint">Military location hidden</div>`;
@@ -34,7 +34,6 @@ function updateMeta(elId, resPoint, defaultMsg) {
   }
 }
 
-// Haritadaki çizgilerin birbirini silmesini engelleyen Ortak Map State
 const mapState = {
   airLine: null, airMarkers: [],
   seaLine: null, seaMarkers: [],
@@ -54,12 +53,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMap('map');
   await loadDB(document.getElementById('statusBadge'));
 
-  // Template Buttons
+  // Templates & Toggles
   document.getElementById('btnTemplateSimple')?.addEventListener('click', () => downloadSampleTemplate('simple'));
   document.getElementById('btnTemplateDetailed')?.addEventListener('click', () => downloadSampleTemplate('detailed'));
   document.getElementById('nauticalOverlayToggle')?.addEventListener('change', (e) => toggleNauticalOverlay(e.target.checked));
 
-  // Batch Processing Listeners
+  // Batch Processing
   const batchInput = document.getElementById('batchFileInput');
   const batchChooseBtn = document.getElementById('batchChooseBtn');
   const batchDropzone = document.getElementById('batchDropzone');
@@ -118,10 +117,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const oVal = getInputValue(origInput);
     const dVal = getInputValue(destInput);
 
-    const res = await processAirRoute(oVal, dVal);
+    const r1 = oVal ? await resolveLocation(oVal, 'air') : null;
+    const r2 = dVal ? await resolveLocation(dVal, 'air') : null;
 
-    updateMeta('origMeta', res?.r1, 'Type an origin above');
-    updateMeta('destMeta', res?.r2, 'Type a destination above');
+    updateMeta('origMeta', r1, 'Type an origin above', 'air');
+    updateMeta('destMeta', r2, 'Type a destination above', 'air');
+
+    const res = await processAirRoute(oVal, dVal);
 
     if (res?.rawKm != null && res.r1?.apt && res.r2?.apt) {
       lastAirRawKm = res.rawKm;
@@ -161,14 +163,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const oVal = getInputValue(seaOrigInput);
     const dVal = getInputValue(seaDestInput);
 
-    const res = await processSeaRoute(oVal, dVal);
+    const r1 = oVal ? await resolveLocation(oVal, 'sea') : null;
+    const r2 = dVal ? await resolveLocation(dVal, 'sea') : null;
 
-    updateMeta('seaOrigMeta', res?.r1, 'Type a city or country above');
-    updateMeta('seaDestMeta', res?.r2, 'Type a destination above');
+    updateMeta('seaOrigMeta', r1, 'Type a city or country above', 'sea');
+    updateMeta('seaDestMeta', r2, 'Type a destination above', 'sea');
 
     const distEl = document.getElementById('seaDist');
     const durationEl = document.getElementById('seaDuration');
     const routeEl = document.getElementById('seaRoute');
+
+    const res = await processSeaRoute(oVal, dVal);
 
     if (res && res.km != null && res.r1?.apt && res.r2?.apt) {
       const km = res.km;
@@ -211,14 +216,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const oVal = getInputValue(roadOrigInput);
     const dVal = getInputValue(roadDestInput);
 
-    const res = await processRoadRoute(oVal, dVal);
+    const r1 = oVal ? await resolveLocation(oVal, 'road') : null;
+    const r2 = dVal ? await resolveLocation(dVal, 'road') : null;
 
-    updateMeta('roadOrigMeta', res?.r1, 'Type an origin above');
-    updateMeta('roadDestMeta', res?.r2, 'Type a destination above');
+    updateMeta('roadOrigMeta', r1, 'Type an origin above', 'road');
+    updateMeta('roadDestMeta', r2, 'Type a destination above', 'road');
 
     const distEl = document.getElementById('roadDist');
     const durationEl = document.getElementById('roadDuration');
     const routeEl = document.getElementById('roadRoute');
+
+    const res = await processRoadRoute(oVal, dVal);
 
     if (res && res.km != null && res.r1?.apt && res.r2?.apt) {
       const h = Math.floor(res.durationMin / 60);
