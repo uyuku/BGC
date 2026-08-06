@@ -1,10 +1,12 @@
 import { resolveLocation } from './geocoder.js';
 
 export async function processRoadRoute(origText, destText) {
-  const r1 = await resolveLocation(origText);
-  const r2 = await resolveLocation(destText);
+  const r1 = await resolveLocation(origText, 'road');
+  const r2 = await resolveLocation(destText, 'road');
 
-  if (!(r1 && r1.apt && r2 && r2.apt)) return null;
+  if (!(r1 && r1.apt && r2 && r2.apt)) {
+    return { r1, r2, km: null, durationMin: null, geometry: null };
+  }
 
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${r1.apt.lon},${r1.apt.lat};${r2.apt.lon},${r2.apt.lat}?overview=full&geometries=geojson`;
