@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Better Great Circle</title>
+
+  <!-- Jelly UI CDN -->
+  <script type="module" src="https://jelly-ui.com/package.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.2.0/dist/maplibre-gl.css" rel="stylesheet" />
+</head>
+<body>
+
+  <jelly-theme mode="light" accent="#8fc7e8">
+    <div class="wrapper">
+
+      <!-- HEADER -->
+      <header class="header">
+        <jelly-badge id="statusBadge" variant="graphite">Connecting...</jelly-badge>
+        <h1 class="title">Better Great Circle</h1>
+      </header>
+
+      <jelly-divider></jelly-divider>
+
+      <!-- AIR DISTANCE -->
+      <section class="section">
+        <div class="section-header">
+          <jelly-chip size="small" variant="azure">Air distance</jelly-chip>
+        </div>
+        <main class="grid">
+          <jelly-card>
+            <div class="panel">
+              <jelly-label>Departure</jelly-label>
+              <jelly-input id="orig" placeholder="IATA, CITY, COUNTRY..."></jelly-input>
+              <div class="meta" id="origMeta"><em>Type an origin above</em></div>
+            </div>
+          </jelly-card>
+
+          <jelly-card>
+            <div class="center-card">
+              <div class="dist-title">Air Distance</div>
+              <div class="dist-value" id="dist">-- km</div>
+              <div class="dist-sub" id="route">Awaiting input</div>
+              <label class="detour-tick">
+                <jelly-switch id="detourToggle" size="small" variant="azure"></jelly-switch>
+                +8% detour
+              </label>
+            </div>
+          </jelly-card>
+
+          <jelly-card>
+            <div class="panel">
+              <jelly-label class="right-align">Arrival</jelly-label>
+              <jelly-input id="dest" placeholder="IATA, CITY, COUNTRY..." class="right-align"></jelly-input>
+              <div class="meta right-align" id="destMeta"><em>Type a destination above</em></div>
+            </div>
+          </jelly-card>
+        </main>
+      </section>
+
+      <!-- SEA ROUTE -->
+      <section class="section">
+        <div class="section-header">
+          <jelly-chip size="small" variant="azure">Sea route</jelly-chip>
+        </div>
+        <main class="grid">
+          <jelly-card>
+            <div class="panel">
+              <jelly-label>Departure Port / City</jelly-label>
+              <jelly-input id="seaOrig" placeholder="CITY, COUNTRY..."></jelly-input>
+              <div class="meta" id="seaOrigMeta"><em>Type a city or country above</em></div>
+            </div>
+          </jelly-card>
+
+          <jelly-card>
+            <div class="center-card">
+              <div class="dist-title">Sea Passage Distance</div>
+              <div class="dist-value" id="seaDist">-- km</div>
+              <div class="dist-sub" id="seaDuration">-- NM · -- h</div>
+              <div class="dist-sub" id="seaRoute" style="font-size: 0.74rem; margin-top: 0.15rem;">Awaiting input</div>
+              <div class="passages-container" id="seaPassages"></div>
+            </div>
+          </jelly-card>
+
+          <jelly-card>
+            <div class="panel">
+              <jelly-label class="right-align">Arrival Port / City</jelly-label>
+              <jelly-input id="seaDest" placeholder="CITY, COUNTRY..." class="right-align"></jelly-input>
+              <div class="meta right-align" id="seaDestMeta"><em>Type a destination above</em></div>
+            </div>
+          </jelly-card>
+        </main>
+
+        <jelly-card>
+          <div class="panel" style="padding: 0.9rem 1rem;">
+            <jelly-label style="font-size: 0.72rem; opacity: 0.7;">
+              Via (optional) force the route through a waypoint.
+            </jelly-label>
+            <jelly-input id="seaVia" placeholder="e.g. Skagen, Denmark"></jelly-input>
+            <div class="meta" id="seaViaMeta" style="border-top: none; padding-top: 0;"></div>
+          </div>
+        </jelly-card>
+      </section>
+
+      <!-- ROAD DISTANCE -->
+      <section class="section">
+        <div class="section-header">
+          <jelly-chip size="small" variant="amber">Road distance</jelly-chip>
+        </div>
+        <main class="grid">
+          <jelly-card>
+            <div class="panel">
+              <jelly-label>Departure City / Address</jelly-label>
+              <jelly-input id="roadOrig" placeholder="CITY, COUNTRY..."></jelly-input>
+              <div class="meta" id="roadOrigMeta"><em>Type an origin above</em></div>
+            </div>
+          </jelly-card>
+
+          <jelly-card>
+            <div class="center-card">
+              <div class="dist-title">Driving Distance</div>
+              <div class="dist-value" id="roadDist">-- km</div>
+              <div class="dist-sub" id="roadDuration">-- h -- min</div>
+              <div class="dist-sub" id="roadRoute" style="font-size: 0.74rem; margin-top: 0.15rem;">Awaiting input</div>
+            </div>
+          </jelly-card>
+
+          <jelly-card>
+            <div class="panel">
+              <jelly-label class="right-align">Arrival City / Address</jelly-label>
+              <jelly-input id="roadDest" placeholder="CITY, COUNTRY..." class="right-align"></jelly-input>
+              <div class="meta right-align" id="roadDestMeta"><em>Type a destination above</em></div>
+            </div>
+          </jelly-card>
+        </main>
+      </section>
+
+      <!-- ROUTE MAP -->
+      <section class="section">
+        <div class="section-header">
+          <jelly-chip size="small" variant="azure">Route Map & OpenSeaMap Nautical Chart</jelly-chip>
+        </div>
+        <div class="map-controls-bar">
+          <div class="map-legend">
+            <jelly-badge variant="azure">Air route</jelly-badge>
+            <jelly-badge variant="azure">Sea route</jelly-badge>
+            <jelly-badge variant="amber">Road route</jelly-badge>
+          </div>
+
+          <label class="detour-tick">
+            <jelly-switch id="nauticalOverlayToggle" size="small" variant="azure" checked></jelly-switch>
+            Show OpenSeaMap Seamarks
+          </label>
+        </div>
+        <jelly-card>
+          <div id="map"></div>
+        </jelly-card>
+      </section>
+
+      <!-- BATCH XLSX -->
+      <section class="section">
+        <div class="section-header">
+          <jelly-chip size="small" variant="mint">Batch calculator (.xlsx)</jelly-chip>
+        </div>
+        <jelly-card>
+          <div class="batch-dropzone" id="batchDropzone">
+            <div class="batch-instructions">
+              Choose between a <strong>Simple Template</strong> or <strong>Detailed Template</strong>. Upload your file to calculate air, maritime, and driving distances in bulk.
+            </div>
+            <div class="batch-actions">
+              <jelly-button size="small" variant="azure" id="btnTemplateSimple">Template 1: Simple</jelly-button>
+              <jelly-button size="small" variant="azure" id="btnTemplateDetailed">Template 2: Split Country/City</jelly-button>
+              <input type="file" id="batchFileInput" accept=".xlsx,.xls" style="display:none" />
+              <jelly-button size="small" variant="mint" id="batchChooseBtn">Choose file to process</jelly-button>
+            </div>
+            <div class="batch-filename" id="batchFilename">or drag a .xlsx file here</div>
+            <div class="batch-progress" id="batchProgress"></div>
+            <div class="batch-status" id="batchStatus"></div>
+            <jelly-button size="medium" variant="mint" id="batchDownloadBtn" style="display:none;">
+              ⬇ Download completed file
+            </jelly-button>
+          </div>
+        </jelly-card>
+
+      </div>
+  </jelly-theme>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
