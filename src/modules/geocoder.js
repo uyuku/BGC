@@ -1,4 +1,4 @@
-import { MAJOR_CITIES, MILITARY_RE, MILITARY_INTENT_RE } from '../constants/cities.js';
+import { MAJOR_CITIES, MILITARY_RE, MILITARY_INTENT_RE } from './cities.js';
 
 let DB = [];
 let IATA = {};
