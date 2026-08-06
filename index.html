@@ -25,7 +25,7 @@
     }
 
     /*
-     * Pastel palette override for Jelly UI.
+     * Custom Jelly UI Token Overrides
      */
     :root {
       --jelly-color-background-default:          #f3f7fb;
@@ -70,7 +70,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.75rem;
     }
 
     .title {
@@ -85,13 +85,10 @@
       gap: 0.75rem;
     }
 
-    .section-label {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      opacity: 0.55;
-      font-weight: 800;
-      padding-left: 0.1rem;
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
 
     .grid {
@@ -199,22 +196,9 @@
 
     .map-legend {
       display: flex;
-      gap: 1.25rem;
-      opacity: 0.85;
+      gap: 0.5rem;
+      opacity: 0.9;
       flex-wrap: wrap;
-    }
-
-    .map-legend span {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .map-legend .swatch {
-      width: 18px;
-      height: 3px;
-      border-radius: 2px;
-      display: inline-block;
     }
 
     #map {
@@ -227,29 +211,6 @@
     .maplibregl-ctrl-attrib {
       font-size: 0.65rem;
     }
-
-    /* ---- Jelly-toned button styles ---- */
-    .jelly-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      padding: 0.6rem 1.2rem;
-      border-radius: 10px;
-      background: var(--jelly-color-background-accent);
-      color: var(--jelly-color-foreground-on-accent);
-      font-weight: 700;
-      font-size: 0.85rem;
-      cursor: pointer;
-      border: none;
-      text-decoration: none;
-      transition: filter 0.15s ease, transform 0.05s ease, opacity 0.15s ease;
-      white-space: nowrap;
-    }
-    .jelly-btn:hover { filter: brightness(1.05); }
-    .jelly-btn:active { transform: scale(0.98); }
-    .jelly-btn.mint { background: var(--jelly-color-background-mint); }
-    .jelly-btn.disabled { opacity: 0.45; pointer-events: none; }
 
     .batch-dropzone {
       border: 2px dashed var(--jelly-color-border-default);
@@ -309,9 +270,13 @@
         <h1 class="title">Better Great Circle</h1>
       </header>
 
+      <jelly-divider></jelly-divider>
+
       <!-- AIR DISTANCE CALCULATOR -->
       <section class="section">
-        <div class="section-label"> Air distance</div>
+        <div class="section-header">
+          <jelly-chip size="small" variant="azure">Air distance</jelly-chip>
+        </div>
         <main class="grid">
 
           <!-- DEPARTURE CARD -->
@@ -350,7 +315,9 @@
 
       <!-- SEA ROUTE CALCULATOR -->
       <section class="section">
-        <div class="section-label"> Sea route</div>
+        <div class="section-header">
+          <jelly-chip size="small" variant="azure">Sea route</jelly-chip>
+        </div>
         <main class="grid">
 
           <!-- SEA DEPARTURE CARD -->
@@ -396,9 +363,11 @@
         </jelly-card>
       </section>
 
-      <!-- ROAD DISTANCE CALCULATOR (KARA YOLU - OSRM) -->
+      <!-- ROAD DISTANCE CALCULATOR -->
       <section class="section">
-        <div class="section-label"> Road distance </div>
+        <div class="section-header">
+          <jelly-chip size="small" variant="amber">Road distance</jelly-chip>
+        </div>
         <main class="grid">
 
           <!-- ROAD DEPARTURE CARD -->
@@ -434,12 +403,14 @@
 
       <!-- ROUTE MAP & NAUTICAL CHART -->
       <section class="section">
-        <div class="section-label"> Route Map & OpenSeaMap Nautical Chart</div>
+        <div class="section-header">
+          <jelly-chip size="small" variant="azure">Route Map & OpenSeaMap Nautical Chart</jelly-chip>
+        </div>
         <div class="map-controls-bar">
           <div class="map-legend">
-            <span><i class="swatch" style="background:#4f8fc4"></i>Air (great circle)</span>
-            <span><i class="swatch" style="background:#0284c7"></i>Sea route</span>
-            <span><i class="swatch" style="background:#e59b60"></i>Road route</span>
+            <jelly-badge variant="azure">Air route</jelly-badge>
+            <jelly-badge variant="azure">Sea route</jelly-badge>
+            <jelly-badge variant="amber">Road route</jelly-badge>
           </div>
 
           <label class="detour-tick">
@@ -454,26 +425,32 @@
 
       <!-- BATCH XLSX CALCULATOR -->
       <section class="section">
-        <div class="section-label">Batch calculator (.xlsx)</div>
+        <div class="section-header">
+          <jelly-chip size="small" variant="mint">Batch calculator (.xlsx)</jelly-chip>
+        </div>
         <jelly-card>
           <div class="batch-dropzone" id="batchDropzone">
             <div class="batch-instructions">
               Choose between a <strong>Simple Template</strong> (combined city/location) or a <strong>Detailed Template</strong> (split country & city columns). Upload your file and it will calculate <strong>km</strong> (air), <strong>sea_km</strong> (maritime), and <strong>road_km</strong> (driving) for every row.
             </div>
             <div class="batch-actions">
-              <button type="button" class="jelly-btn" onclick="downloadSampleTemplate('simple')">
+              <jelly-button size="small" variant="azure" id="btnTemplateSimple">
                  Template 1: Simple
-              </button>
-              <button type="button" class="jelly-btn" onclick="downloadSampleTemplate('detailed')">
+              </jelly-button>
+              <jelly-button size="small" variant="azure" id="btnTemplateDetailed">
                  Template 2: Split Country/City
-              </button>
+              </jelly-button>
               <input type="file" id="batchFileInput" accept=".xlsx,.xls" style="display:none" />
-              <label for="batchFileInput" class="jelly-btn mint" id="batchChooseBtn">Choose file to process</label>
+              <jelly-button size="small" variant="mint" id="batchChooseBtn">
+                 Choose file to process
+              </jelly-button>
             </div>
             <div class="batch-filename" id="batchFilename">or drag a .xlsx file here</div>
             <div class="batch-progress" id="batchProgress"></div>
             <div class="batch-status" id="batchStatus"></div>
-            <a id="batchDownloadBtn" class="jelly-btn mint" style="display:none;" download>⬇ Download completed file</a>
+            <jelly-button size="medium" variant="mint" id="batchDownloadBtn" style="display:none;">
+               ⬇ Download completed file
+            </jelly-button>
           </div>
         </jelly-card>
       </section>
@@ -937,14 +914,14 @@
       const ql = rawQ.toLowerCase();
       const wantsMilitary = queryWantsMilitary(rawQ);
 
-      // 1. Direct 3-letter IATA Code match (e.g. "LHR", "JFK", "IST", "YXU")
+      // 1. Direct 3-letter IATA Code match
       if (q.length === 3 && IATA[q]) {
         const apt = IATA[q];
         if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
         return { apt, method: 'IATA Match' };
       }
 
-      // 2. Detect comma-separated country/state (e.g. "London, Canada" vs "London, UK")
+      // 2. Detect comma-separated country/state
       let userCountryOrState = null;
       if (rawQ.includes(',')) {
         const parts = rawQ.split(',').map(s => s.trim().toLowerCase());
@@ -960,7 +937,6 @@
         return c === ql || n === ql;
       });
 
-      // Filter matches if user gave an explicit country/state (e.g., "London, Canada")
       if (userCountryOrState && matches.length > 0) {
         const specificMatches = matches.filter(a => 
           a.country.toLowerCase() === userCountryOrState || 
@@ -971,7 +947,7 @@
         }
       }
 
-      // 4. Major City Override (e.g., "London" -> prefers LHR London UK over CYXU London Canada)
+      // 4. Major City Override
       if (!userCountryOrState && MAJOR_CITIES[ql]) {
         const pref = MAJOR_CITIES[ql];
         if (IATA[pref.preferredIata]) {
@@ -979,7 +955,7 @@
         }
       }
 
-      // 5. Query OpenStreetMap Nominatim for global popularity ranking
+      // 5. Query OpenStreetMap Nominatim
       const geo = await geocodeNominatim(rawQ);
       if (geo && geo.length) {
         const tLat = +geo[0].lat, tLon = +geo[0].lon;
@@ -1289,6 +1265,9 @@
       return -1;
     }
 
+    let batchDownloadBlobUrl = null;
+    let batchDownloadFileName = '';
+
     async function processBatchFile(file) {
       const statusEl = document.getElementById('batchStatus');
       const progressEl = document.getElementById('batchProgress');
@@ -1299,7 +1278,7 @@
       statusEl.classList.remove('error');
       statusEl.innerHTML = '<span style="opacity:0.6; font-weight:500;">Reading file...</span>';
       progressEl.textContent = '';
-      chooseBtn.classList.add('disabled');
+      chooseBtn.setAttribute('disabled', 'true');
 
       try {
         const XLSX = await loadXlsxModule();
@@ -1313,13 +1292,13 @@
 
         const header = rows[0].slice();
 
-        // 1. Detect Split Columns (Country / City)
+        // 1. Detect Split Columns
         let depCountryIdx = findColumnIndex(header, [/^dep.*country/, /^from.*country/, /^origin.*country/, /^departure.*country/]);
         let depCityIdx = findColumnIndex(header, [/^dep.*city/, /^from.*city/, /^origin.*city/, /^departure.*city/]);
         let arrCountryIdx = findColumnIndex(header, [/^arr.*country/, /^to.*country/, /^dest.*country/, /^arrival.*country/]);
         let arrCityIdx = findColumnIndex(header, [/^arr.*city/, /^to.*city/, /^dest.*city/, /^arrival.*city/]);
 
-        // 2. Detect Combined Columns (Departure / Arrival)
+        // 2. Detect Combined Columns
         let depIdx = findColumnIndex(header, [/^depart/, /^origin/, /^from$/]);
         let arrIdx = findColumnIndex(header, [/^arriv/, /^dest/, /^to$/]);
 
@@ -1422,12 +1401,11 @@
         wb.Sheets[sheetName] = newWs;
         const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
         const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = URL.createObjectURL(blob);
+        
+        batchDownloadBlobUrl = URL.createObjectURL(blob);
+        batchDownloadFileName = file.name.replace(/\.(xlsx|xls)$/i, '') + '_calculated.xlsx';
 
-        const outName = file.name.replace(/\.(xlsx|xls)$/i, '') + '_calculated.xlsx';
-        downloadBtn.href = url;
-        downloadBtn.download = outName;
-        downloadBtn.style.display = 'inline-flex';
+        downloadBtn.style.display = 'inline-block';
 
         progressEl.textContent = '';
         statusEl.innerHTML = `<span> ${ok} row${ok === 1 ? '' : 's'} calculated${failed ? `, ${failed} skipped/unresolved` : ''}</span>`;
@@ -1436,7 +1414,7 @@
         statusEl.classList.add('error');
         statusEl.textContent = err && err.message ? err.message : 'Failed to process file.';
       } finally {
-        chooseBtn.classList.remove('disabled');
+        chooseBtn.removeAttribute('disabled');
       }
     }
 
@@ -1458,9 +1436,29 @@
 
     document.getElementById('nauticalOverlayToggle').addEventListener('change', toggleNauticalOverlay);
 
+    // Template Buttons
+    document.getElementById('btnTemplateSimple').addEventListener('click', () => downloadSampleTemplate('simple'));
+    document.getElementById('btnTemplateDetailed').addEventListener('click', () => downloadSampleTemplate('detailed'));
+
+    // Batch File Input
     const batchInput = document.getElementById('batchFileInput');
     const batchDropzone = document.getElementById('batchDropzone');
     const batchFilename = document.getElementById('batchFilename');
+    const batchChooseBtn = document.getElementById('batchChooseBtn');
+    const batchDownloadBtn = document.getElementById('batchDownloadBtn');
+
+    batchChooseBtn.addEventListener('click', () => batchInput.click());
+
+    batchDownloadBtn.addEventListener('click', () => {
+      if (batchDownloadBlobUrl) {
+        const a = document.createElement('a');
+        a.href = batchDownloadBlobUrl;
+        a.download = batchDownloadFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    });
 
     batchInput.addEventListener('change', () => {
       const f = batchInput.files[0];
