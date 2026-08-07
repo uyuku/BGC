@@ -10,8 +10,7 @@
   },
   "dependencies": {
     "maplibre-gl": "^5.2.0",
-    "searoute-ts": "^2.2.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.1/xlsx-0.20.1.tgz"
+    "searoute-ts": "^2.2.0"
   },
   "devDependencies": {
     "vite": "^5.1.0"
