@@ -1,14 +1,35 @@
+
 import './styles/main.css';
 import { loadDB, resolveLocation } from './modules/geocoder.js';
 import { initMap, toggleNauticalOverlay, updateMapData } from './modules/map.js';
-import { processAirRoute } from './modules/air.js';
-import { processSeaRoute } from './modules/sea.js';
-import { processRoadRoute } from './modules/road.js';
+import { computeAirRoute } from './modules/air.js';
+import { computeSeaRoute } from './modules/sea.js';
+import { computeRoadRoute } from './modules/road.js';
 import { downloadSampleTemplate, processBatchFile, triggerBatchDownload } from './modules/batch.js';
 
 function getInputValue(el) {
   if (!el) return '';
   return (el.value || el.getAttribute('value') || el.shadowRoot?.querySelector('input')?.value || '').trim();
+}
+
+// Mirrors getInputValue's own detection order so a value we set is picked
+// back up the same way a value the user typed would be, and fires the
+// events the panels already listen for so recalculation kicks in.
+function setInputValue(el, value) {
+  if (!el) return;
+  const innerInput = el.shadowRoot?.querySelector('input');
+  if ('value' in el) el.value = value;
+  el.setAttribute('value', value);
+  if (innerInput) innerInput.value = value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function swapInputs(elA, elB) {
+  const a = getInputValue(elA);
+  const b = getInputValue(elB);
+  setInputValue(elA, b);
+  setInputValue(elB, a);
 }
 
 function updateMeta(elId, resPoint, defaultMsg, mode = 'air') {
@@ -32,6 +53,15 @@ function updateMeta(elId, resPoint, defaultMsg, mode = 'air') {
   } else {
     el.innerHTML = `<em>${defaultMsg}</em>`;
   }
+}
+
+function pointMarker(kind, r) {
+  if (!r || !r.apt) return null;
+  return {
+    type: 'Feature',
+    properties: { kind, label: r.apt.city || r.apt.name },
+    geometry: { type: 'Point', coordinates: [r.apt.lon, r.apt.lat] }
+  };
 }
 
 const mapState = {
@@ -102,6 +132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const destInput = document.getElementById('dest');
   const detourToggle = document.getElementById('detourToggle');
   let airTimer = null;
+  let airGen = 0;
   let lastAirRawKm = null;
 
   function renderAirDist() {
@@ -117,36 +148,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function updateAir() {
+    const myGen = ++airGen;
     const oVal = getInputValue(origInput);
     const dVal = getInputValue(destInput);
 
     const r1 = oVal ? await resolveLocation(oVal, 'air') : null;
     const r2 = dVal ? await resolveLocation(dVal, 'air') : null;
+    if (myGen !== airGen) return; // a newer keystroke already superseded this lookup
 
     updateMeta('origMeta', r1, 'Type an origin above', 'air');
     updateMeta('destMeta', r2, 'Type a destination above', 'air');
 
-    const res = await processAirRoute(oVal, dVal);
+    // Show whichever side(s) resolved right away, even before both are filled in.
+    mapState.airMarkers = [pointMarker('air', r1), pointMarker('air', r2)].filter(Boolean);
+
+    const res = computeAirRoute(r1, r2);
 
     if (res?.rawKm != null && res.r1?.apt && res.r2?.apt) {
       lastAirRawKm = res.rawKm;
       renderAirDist();
       document.getElementById('route').textContent = `${res.r1.apt.city || res.r1.apt.name} → ${res.r2.apt.city || res.r2.apt.name}`;
-
       mapState.airLine = res.line;
-      mapState.airMarkers = [
-        { type: 'Feature', properties: { kind: 'air', label: res.r1.apt.city || res.r1.apt.name }, geometry: { type: 'Point', coordinates: [res.r1.apt.lon, res.r1.apt.lat] } },
-        { type: 'Feature', properties: { kind: 'air', label: res.r2.apt.city || res.r2.apt.name }, geometry: { type: 'Point', coordinates: [res.r2.apt.lon, res.r2.apt.lat] } }
-      ];
-      syncMap();
     } else {
       lastAirRawKm = null;
       renderAirDist();
       document.getElementById('route').textContent = 'Awaiting valid inputs';
       mapState.airLine = null;
-      mapState.airMarkers = [];
-      syncMap();
     }
+    syncMap();
   }
 
   const onAirChange = () => { clearTimeout(airTimer); airTimer = setTimeout(updateAir, 350); };
@@ -155,6 +184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     destInput?.addEventListener(evt, onAirChange);
   });
   detourToggle?.addEventListener('change', renderAirDist);
+  document.getElementById('airSwapBtn')?.addEventListener('click', () => swapInputs(origInput, destInput));
 
   // ---------- 2. SEA ROUTE ----------
   const seaOrigInput = document.getElementById('seaOrig');
@@ -162,8 +192,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const seaViaInput = document.getElementById('seaVia');
   const seaDraftInput = document.getElementById('seaDraft');
   let seaTimer = null;
+  let seaGen = 0;
 
   async function updateSea() {
+    const myGen = ++seaGen;
     const oVal = getInputValue(seaOrigInput);
     const dVal = getInputValue(seaDestInput);
     const viaVal = getInputValue(seaViaInput);
@@ -172,17 +204,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const r1 = oVal ? await resolveLocation(oVal, 'sea') : null;
     const r2 = dVal ? await resolveLocation(dVal, 'sea') : null;
     const rVia = viaVal ? await resolveLocation(viaVal, 'sea') : null;
+    if (myGen !== seaGen) return;
 
     updateMeta('seaOrigMeta', r1, 'Type a city or country above', 'sea');
     updateMeta('seaDestMeta', r2, 'Type a destination above', 'sea');
     updateMeta('seaViaMeta', rVia, 'Via waypoint', 'sea');
+
+    mapState.seaMarkers = [pointMarker('sea', r1), pointMarker('sea', rVia), pointMarker('sea', r2)].filter(Boolean);
 
     const distEl = document.getElementById('seaDist');
     const durationEl = document.getElementById('seaDuration');
     const routeEl = document.getElementById('seaRoute');
     const passagesEl = document.getElementById('seaPassages');
 
-    const res = await processSeaRoute(oVal, dVal, viaVal, draftVal);
+    const res = computeSeaRoute(r1, r2, rVia, draftVal);
 
     if (res && res.km != null && res.r1?.apt && res.r2?.apt) {
       const km = res.km;
@@ -200,21 +235,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       mapState.seaLine = res.feature;
-      mapState.seaMarkers = [
-        { type: 'Feature', properties: { kind: 'sea', label: res.r1.apt.city || res.r1.apt.name }, geometry: { type: 'Point', coordinates: [res.r1.apt.lon, res.r1.apt.lat] } },
-        ...(res.rVia?.apt ? [{ type: 'Feature', properties: { kind: 'sea', label: res.rVia.apt.city || res.rVia.apt.name }, geometry: { type: 'Point', coordinates: [res.rVia.apt.lon, res.rVia.apt.lat] } }] : []),
-        { type: 'Feature', properties: { kind: 'sea', label: res.r2.apt.city || res.r2.apt.name }, geometry: { type: 'Point', coordinates: [res.r2.apt.lon, res.r2.apt.lat] } }
-      ];
-      syncMap();
     } else {
       if (distEl) distEl.innerHTML = '-- <span class="dist-unit">km</span>';
       if (durationEl) durationEl.textContent = '-- NM · -- h';
       if (routeEl) routeEl.textContent = res && res.error ? res.error : 'Awaiting valid inputs';
       if (passagesEl) passagesEl.innerHTML = '';
       mapState.seaLine = null;
-      mapState.seaMarkers = [];
-      syncMap();
     }
+    syncMap();
   }
 
   const onSeaChange = () => { clearTimeout(seaTimer); seaTimer = setTimeout(updateSea, 350); };
@@ -224,27 +252,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     seaViaInput?.addEventListener(evt, onSeaChange);
     seaDraftInput?.addEventListener(evt, onSeaChange);
   });
+  document.getElementById('seaSwapBtn')?.addEventListener('click', () => swapInputs(seaOrigInput, seaDestInput));
 
   // ---------- 3. ROAD ROUTE ----------
   const roadOrigInput = document.getElementById('roadOrig');
   const roadDestInput = document.getElementById('roadDest');
   let roadTimer = null;
+  let roadGen = 0;
 
   async function updateRoad() {
+    const myGen = ++roadGen;
     const oVal = getInputValue(roadOrigInput);
     const dVal = getInputValue(roadDestInput);
 
     const r1 = oVal ? await resolveLocation(oVal, 'road') : null;
     const r2 = dVal ? await resolveLocation(dVal, 'road') : null;
+    if (myGen !== roadGen) return;
 
     updateMeta('roadOrigMeta', r1, 'Type an origin above', 'road');
     updateMeta('roadDestMeta', r2, 'Type a destination above', 'road');
+
+    mapState.roadMarkers = [pointMarker('road', r1), pointMarker('road', r2)].filter(Boolean);
+    syncMap(); // show markers immediately; the OSRM fetch below can take a moment
 
     const distEl = document.getElementById('roadDist');
     const durationEl = document.getElementById('roadDuration');
     const routeEl = document.getElementById('roadRoute');
 
-    const res = await processRoadRoute(oVal, dVal);
+    const res = await computeRoadRoute(r1, r2);
+    if (myGen !== roadGen) return; // superseded while the OSRM request was in flight
 
     if (res && res.km != null && res.r1?.apt && res.r2?.apt) {
       const h = Math.floor(res.durationMin / 60);
@@ -255,19 +291,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (routeEl) routeEl.textContent = `${res.r1.apt.city || res.r1.apt.name} → ${res.r2.apt.city || res.r2.apt.name}`;
 
       mapState.roadLine = { type: 'Feature', properties: {}, geometry: res.geometry };
-      mapState.roadMarkers = [
-        { type: 'Feature', properties: { kind: 'road', label: res.r1.apt.city || res.r1.apt.name }, geometry: { type: 'Point', coordinates: [res.r1.apt.lon, res.r1.apt.lat] } },
-        { type: 'Feature', properties: { kind: 'road', label: res.r2.apt.city || res.r2.apt.name }, geometry: { type: 'Point', coordinates: [res.r2.apt.lon, res.r2.apt.lat] } }
-      ];
-      syncMap();
     } else {
       if (distEl) distEl.innerHTML = '-- <span class="dist-unit">km</span>';
       if (durationEl) durationEl.textContent = '-- h -- min';
-      if (routeEl) routeEl.textContent = 'Awaiting valid inputs';
+      routeEl.textContent = res && res.error ? res.error : 'Awaiting valid inputs';
       mapState.roadLine = null;
-      mapState.roadMarkers = [];
-      syncMap();
     }
+    syncMap();
   }
 
   const onRoadChange = () => { clearTimeout(roadTimer); roadTimer = setTimeout(updateRoad, 350); };
@@ -275,4 +305,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     roadOrigInput?.addEventListener(evt, onRoadChange);
     roadDestInput?.addEventListener(evt, onRoadChange);
   });
+  document.getElementById('roadSwapBtn')?.addEventListener('click', () => swapInputs(roadOrigInput, roadDestInput));
 });
