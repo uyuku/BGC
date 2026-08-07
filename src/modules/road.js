@@ -1,11 +1,8 @@
 import { resolveLocation } from './geocoder.js';
 
-export async function processRoadRoute(origText, destText) {
-  const r1 = await resolveLocation(origText, 'road');
-  const r2 = await resolveLocation(destText, 'road');
-
+export async function computeRoadRoute(r1, r2) {
   if (!(r1 && r1.apt && r2 && r2.apt)) {
-    return { r1, r2, km: null, durationMin: null, geometry: null };
+    return { r1, r2, km: null, durationMin: null, geometry: null, error: null };
   }
 
   try {
@@ -19,10 +16,19 @@ export async function processRoadRoute(origText, destText) {
         r1, r2,
         km: route.distance / 1000,
         durationMin: Math.round(route.duration / 60),
-        geometry: route.geometry
+        geometry: route.geometry,
+        error: null
       };
     }
-  } catch (e) {}
 
-  return { r1, r2, km: null, durationMin: null, geometry: null };
+    return { r1, r2, km: null, durationMin: null, geometry: null, error: 'No driving route found (are both points reachable by road?)' };
+  } catch (e) {
+    return { r1, r2, km: null, durationMin: null, geometry: null, error: 'Road routing service unavailable' };
+  }
+}
+
+export async function processRoadRoute(origText, destText) {
+  const r1 = await resolveLocation(origText, 'road');
+  const r2 = await resolveLocation(destText, 'road');
+  return computeRoadRoute(r1, r2);
 }
