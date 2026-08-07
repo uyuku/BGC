@@ -2,7 +2,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: var(--jelly-font-text, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);
+  font-family: var(--jelly-font-text, 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);
 }
 
 html, body {
@@ -15,36 +15,79 @@ html, body {
 body, jelly-theme {
   min-height: 100vh;
   width: 100%;
-  background: linear-gradient(135deg, #e1eefd 0%, #e0f5ed 100%) !important;
+  background: var(--bgc-bg) !important;
   color: var(--jelly-color-foreground-default);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1rem;
+  padding: 2.5rem 1rem;
 }
 
+/* ==========================================================================
+   Theme tokens — a chart-room instrument palette: quiet ink and slate with
+   three restrained, desaturated hues coding air / sea / road, instead of
+   pastel candy tones. Dark mode is a real second palette, not a filter.
+   ========================================================================== */
+
 :root {
-  --jelly-color-background-default:          #f3f7fb;
+  --bgc-bg:             #eef1f4;
+  --bgc-air:             #2f6fa8;
+  --bgc-sea:             #0f7a72;
+  --bgc-road:            #a3660f;
+  --bgc-danger:          #ad3c56;
+
+  --jelly-color-background-default:          #eef1f4;
   --jelly-color-background-surface:          #ffffff;
-  --jelly-color-background-muted:            #eef4f9;
-  --jelly-color-background-neutral:          #e4edf3;
-  --jelly-color-background-neutral-emphasis: #a9c2d3;
-  --jelly-color-background-rose:             #f7c1cc;
-  --jelly-color-background-amber:            #f6d9a8;
-  --jelly-color-background-azure:            #bfe0f5;
-  --jelly-color-background-mint:             #a9e6c8;
-  --jelly-color-background-accent:           #8fc7e8;
-  --jelly-color-foreground-default:          #263646;
-  --jelly-color-foreground-muted:            #6c7f90;
-  --jelly-color-foreground-on-emphasis:      #1f2f3d;
-  --jelly-color-foreground-on-neutral:       #263646;
-  --jelly-color-foreground-on-white:         #263646;
-  --jelly-color-foreground-on-accent:        #1f2f3d;
-  --jelly-color-border-default:              #dde8f0;
-  --jelly-color-border-focus:                #6aa8d8;
+  --jelly-color-background-muted:            #e7ebef;
+  --jelly-color-background-neutral:          #e1e6eb;
+  --jelly-color-background-neutral-emphasis: #9fb0bd;
+  --jelly-color-background-rose:             #f1d4da;
+  --jelly-color-background-amber:            #f0dcb9;
+  --jelly-color-background-azure:            #d4e3ee;
+  --jelly-color-background-mint:             #cfe6de;
+  --jelly-color-background-accent:           #1f4e79;
+  --jelly-color-foreground-default:          #131c24;
+  --jelly-color-foreground-muted:            #576674;
+  --jelly-color-foreground-on-emphasis:      #ffffff;
+  --jelly-color-foreground-on-neutral:       #131c24;
+  --jelly-color-foreground-on-white:         #131c24;
+  --jelly-color-foreground-on-accent:        #ffffff;
+  --jelly-color-border-default:              #d7dde3;
+  --jelly-color-border-focus:                #1f4e79;
+
+  --jelly-font-text: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --jelly-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+:root[data-theme="dark"] {
+  --bgc-bg:             #0a121b;
+  --bgc-air:             #6fa8dc;
+  --bgc-sea:             #3fc9bd;
+  --bgc-road:            #e0a94a;
+  --bgc-danger:          #e0899b;
+
+  --jelly-color-background-default:          #0a121b;
+  --jelly-color-background-surface:          #111b26;
+  --jelly-color-background-muted:            #16222f;
+  --jelly-color-background-neutral:          #1a2733;
+  --jelly-color-background-neutral-emphasis: #3a4c5a;
+  --jelly-color-background-rose:             #3c2229;
+  --jelly-color-background-amber:            #3a2e18;
+  --jelly-color-background-azure:            #17293a;
+  --jelly-color-background-mint:             #123028;
+  --jelly-color-background-accent:           #6fa8dc;
+  --jelly-color-foreground-default:          #e7edf2;
+  --jelly-color-foreground-muted:            #8ba0b3;
+  --jelly-color-foreground-on-emphasis:      #0a121b;
+  --jelly-color-foreground-on-neutral:       #e7edf2;
+  --jelly-color-foreground-on-white:         #e7edf2;
+  --jelly-color-foreground-on-accent:        #0a121b;
+  --jelly-color-border-default:              #223140;
+  --jelly-color-border-focus:                #6fa8dc;
 }
 
 /* Yerel Mobil Uyumlu Jelly Buton Stilleri */
@@ -54,10 +97,10 @@ body {
   justify-content: center;
   gap: 0.4rem;
   padding: 0.6rem 1.1rem;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--jelly-color-background-accent);
   color: var(--jelly-color-foreground-on-accent);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
   border: none;
@@ -69,46 +112,131 @@ body {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
-.jelly-btn:hover { filter: brightness(1.05); }
+.jelly-btn:hover { filter: brightness(1.1); }
 .jelly-btn:active { transform: scale(0.98); }
-.jelly-btn.azure { background: var(--jelly-color-background-azure); color: #1f2f3d; }
-.jelly-btn.mint { background: var(--jelly-color-background-mint); color: #1f2f3d; }
+.jelly-btn.azure { background: var(--bgc-air); color: #ffffff; }
+.jelly-btn.mint { background: var(--bgc-sea); color: #ffffff; }
 
 .wrapper {
   width: 100%;
   max-width: 960px;
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: 2rem;
   box-sizing: border-box;
 }
 
+/* ---------- Header ---------- */
+
 .header {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.brand-mark {
+  width: 2.4rem;
+  height: 2.4rem;
+  color: var(--bgc-air);
+  flex-shrink: 0;
+}
+
+.brand-text {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
+  gap: 0.15rem;
 }
 
 .title {
-  font-size: 2.5rem;
-  font-weight: 900;
-  letter-spacing: -0.02em;
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   word-break: break-word;
+  line-height: 1.15;
 }
+
+.tagline {
+  font-size: 0.82rem;
+  color: var(--jelly-color-foreground-muted);
+  font-weight: 500;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.theme-toggle {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 1px solid var(--jelly-color-border-default);
+  background: var(--jelly-color-background-surface);
+  color: var(--jelly-color-foreground-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.theme-toggle:hover {
+  color: var(--jelly-color-foreground-default);
+  border-color: var(--jelly-color-border-focus);
+}
+.theme-toggle svg { width: 1.15rem; height: 1.15rem; }
+.theme-toggle .icon-moon { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon-moon { display: inline-flex; }
+
+/* ---------- Section headers ---------- */
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
   width: 100%;
 }
 
 .section-header {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: baseline;
+  gap: 0.7rem;
+  padding-left: 0.85rem;
+  border-left: 3px solid var(--bgc-air);
+}
+
+.section-header--sea   { border-left-color: var(--bgc-sea); }
+.section-header--road  { border-left-color: var(--bgc-road); }
+.section-header--map   { border-left-color: var(--bgc-air); }
+.section-header--batch { border-left-color: var(--bgc-sea); }
+
+.section-kicker {
+  font-family: var(--jelly-font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--bgc-air);
+}
+.section-header--sea   .section-kicker { color: var(--bgc-sea); }
+.section-header--road  .section-kicker { color: var(--bgc-road); }
+.section-header--map   .section-kicker { color: var(--bgc-air); }
+.section-header--batch .section-kicker { color: var(--bgc-sea); }
+
+.section-title {
+  font-size: clamp(1.2rem, 2.6vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1.2;
 }
 
 .grid {
@@ -183,17 +311,18 @@ jelly-input {
 }
 
 .dist-title {
-  font-size: 0.75rem;
+  font-family: var(--jelly-font-mono);
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  opacity: 0.6;
-  font-weight: 700;
+  letter-spacing: 0.14em;
+  opacity: 0.65;
+  font-weight: 600;
 }
 
 .dist-value {
   font-size: clamp(1.6rem, 6vw, 2.2rem);
-  font-weight: 900;
-  font-family: var(--jelly-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-weight: 700;
+  font-family: var(--jelly-font-mono);
   display: inline-flex;
   align-items: baseline;
   justify-content: center;
@@ -206,7 +335,7 @@ jelly-input {
 
 .dist-unit {
   font-size: clamp(1.1rem, 4vw, 1.4rem);
-  font-weight: 700;
+  font-weight: 600;
   opacity: 0.85;
 }
 
@@ -233,6 +362,30 @@ jelly-input {
   cursor: pointer;
 }
 
+.swap-btn {
+  margin-top: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid var(--jelly-color-border-default);
+  background: var(--jelly-color-background-surface);
+  color: var(--jelly-color-foreground-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.swap-btn:hover {
+  color: var(--jelly-color-foreground-default);
+  border-color: var(--jelly-color-border-focus);
+}
+.swap-btn:active {
+  transform: rotate(180deg);
+}
+
 .map-controls-bar {
   display: flex;
   justify-content: space-between;
@@ -253,13 +406,14 @@ jelly-input {
 #map {
   width: 100%;
   height: 440px;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
+  border: 1px solid var(--jelly-color-border-default);
 }
 
 .batch-dropzone {
   border: 2px dashed var(--jelly-color-border-default);
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 1.5rem;
   text-align: center;
   display: flex;
@@ -301,7 +455,7 @@ jelly-input {
 .batch-progress {
   font-size: 0.76rem;
   opacity: 0.7;
-  font-family: var(--jelly-font-mono, ui-monospace, monospace);
+  font-family: var(--jelly-font-mono);
   min-height: 1.1em;
 }
 
@@ -311,7 +465,7 @@ jelly-input {
   min-height: 1.2em;
 }
 
-.batch-status.error { color: #c0546a; }
+.batch-status.error { color: var(--bgc-danger); }
 
 @media (max-width: 600px) {
   body {
@@ -319,7 +473,12 @@ jelly-input {
   }
 
   .title {
-    font-size: 1.8rem;
+    font-size: 1.5rem;
+  }
+
+  .brand-mark {
+    width: 2rem;
+    height: 2rem;
   }
 
   #map {
@@ -333,4 +492,4 @@ jelly-input {
   .batch-actions .jelly-btn {
     width: 100%;
   }
-    }
+}
