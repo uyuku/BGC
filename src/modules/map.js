@@ -5,7 +5,14 @@ let mapReady = false;
 
 function emptyFC() { return { type: 'FeatureCollection', features: [] }; }
 
-export function initMap(containerId) {
+const BASEMAP_TILES = {
+  light: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'],
+  dark: ['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png']
+};
+
+export function initMap(containerId, initialTheme = 'light') {
+  const isDark = initialTheme === 'dark';
+
   map = new maplibregl.Map({
     container: containerId,
     style: {
@@ -29,7 +36,7 @@ export function initMap(containerId) {
 
     map.addSource('carto-basemap', {
       type: 'raster',
-      tiles: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'],
+      tiles: BASEMAP_TILES[isDark ? 'dark' : 'light'],
       tileSize: 256
     });
     map.addLayer({ id: 'carto-basemap-layer', type: 'raster', source: 'carto-basemap' });
@@ -82,8 +89,8 @@ export function initMap(containerId) {
         'text-optional': true
       },
       paint: {
-        'text-color': '#263646',
-        'text-halo-color': '#ffffff',
+        'text-color': isDark ? '#e7edf2' : '#263646',
+        'text-halo-color': isDark ? '#0a121b' : '#ffffff',
         'text-halo-width': 1.4
       }
     });
@@ -95,6 +102,22 @@ export function initMap(containerId) {
 export function toggleNauticalOverlay(enabled) {
   if (!mapReady) return;
   map.setLayoutProperty('openseamark-layer', 'visibility', enabled ? 'visible' : 'none');
+}
+
+// Swap the basemap tiles and marker-label colors to match light/dark mode.
+// Only meaningful once the map has finished its initial load — initMap's
+// `initialTheme` argument covers the first paint.
+export function setMapTheme(mode) {
+  if (!mapReady) return;
+  const isDark = mode === 'dark';
+
+  if (map.getLayer('carto-basemap-layer')) map.removeLayer('carto-basemap-layer');
+  if (map.getSource('carto-basemap')) map.removeSource('carto-basemap');
+  map.addSource('carto-basemap', { type: 'raster', tiles: BASEMAP_TILES[isDark ? 'dark' : 'light'], tileSize: 256 });
+  map.addLayer({ id: 'carto-basemap-layer', type: 'raster', source: 'carto-basemap' }, 'openseamark-layer');
+
+  map.setPaintProperty('marker-labels', 'text-color', isDark ? '#e7edf2' : '#263646');
+  map.setPaintProperty('marker-labels', 'text-halo-color', isDark ? '#0a121b' : '#ffffff');
 }
 
 export function updateMapData({ airLine, seaLine, roadLine, markers }) {
