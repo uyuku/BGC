@@ -2,6 +2,7 @@ export const MAJOR_CITIES = {
   'istanbul': { country: 'TR', preferredIata: 'IST' },
   'istanbul havalimani': { country: 'TR', preferredIata: 'IST' },
   'istanbul havalımanı': { country: 'TR', preferredIata: 'IST' },
+  'istanbul istanbul havalımanı': { country: 'TR', preferredIata: 'IST' },
   'istanbul airport': { country: 'TR', preferredIata: 'IST' },
   'london': { country: 'GB', preferredIata: 'LHR' },
   'paris': { country: 'FR', preferredIata: 'CDG' },
