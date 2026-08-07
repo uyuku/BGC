@@ -181,12 +181,15 @@ export async function processBatchFile(file) {
       const roadRes = await processRoadRoute(depQuery, arrQuery);
 
       if (airRes && airRes.rawKm != null) row[airKmIdx] = Math.round(airRes.rawKm);
-      else row[airKmIdx] = 'unresolved';
+      else row[airKmIdx] = 'n/a';
 
       if (seaRes && seaRes.km != null) {
         row[seaKmIdx] = Math.round(seaRes.km);
         row[passagesIdx] = seaRes.passages && seaRes.passages.length ? seaRes.passages.join(', ') : 'Direct';
-      } else row[seaKmIdx] = 'n/a';
+      } else {
+        row[seaKmIdx] = 'n/a';
+        row[passagesIdx] = seaRes && seaRes.error ? seaRes.error : 'n/a';
+      }
 
       if (roadRes && roadRes.km != null) row[roadKmIdx] = Math.round(roadRes.km);
       else row[roadKmIdx] = 'n/a';
