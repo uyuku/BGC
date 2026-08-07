@@ -69,6 +69,25 @@ export function initMap(containerId) {
       }
     });
 
+    // Every marker already carries a `label` property, but nothing ever
+    // rendered it — add it as text next to each point.
+    map.addLayer({
+      id: 'marker-labels', type: 'symbol', source: 'markers',
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-font': ['Open Sans Regular'],
+        'text-size': 11,
+        'text-offset': [0, 1.1],
+        'text-anchor': 'top',
+        'text-optional': true
+      },
+      paint: {
+        'text-color': '#263646',
+        'text-halo-color': '#ffffff',
+        'text-halo-width': 1.4
+      }
+    });
+
     mapReady = true;
   });
 }
