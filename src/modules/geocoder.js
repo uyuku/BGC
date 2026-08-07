@@ -69,6 +69,15 @@ export async function geocodeNominatim(query) {
   }
 }
 
+// Pulls the first 3-letter IATA code out of parenthesized text, e.g.
+// "Paris Charles de Gaulle Airport (CDG)" -> "CDG"
+// "Beijing Capital (PEK) / Shanghai Pudong (PVG) (aktarmalı)" -> "PEK" (first one)
+// "Delhi Indira Gandhi Intl. (DEL) / Mumbai (BOM)" -> "DEL" (first one)
+function extractEmbeddedIata(text) {
+  const match = text.match(/\(([A-Z]{3})\)/);
+  return match ? match[1] : null;
+}
+
 // mode: 'air' | 'sea' | 'road'
 export async function resolveLocation(query, mode = 'air') {
   if (!query || !query.trim()) return null;
@@ -86,6 +95,20 @@ export async function resolveLocation(query, mode = 'air') {
       const apt = IATA[q];
       if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
       return { apt, method: 'IATA Match' };
+    }
+
+    // Handle free-text labels that contain a parenthesized IATA code, e.g.
+    // "Paris Charles de Gaulle Airport (CDG)". Checked before falling
+    // through to Nominatim, so it short-circuits to a correct match with
+    // no network round-trip, and works for multi-leg labels too (grabs the
+    // FIRST code found, which should be the actual departure/arrival).
+    if (mode === 'air') {
+      const embedded = extractEmbeddedIata(rawQ);
+      if (embedded && IATA[embedded]) {
+        const apt = IATA[embedded];
+        if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
+        return { apt, method: 'Embedded IATA Match' };
+      }
     }
   }
 
