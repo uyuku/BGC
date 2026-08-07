@@ -4,11 +4,14 @@ let DB = [];
 let IATA = {};
 let dbLoaded = false;
 let dbLoadResolve;
+
 export const dbLoadPromise = new Promise((res) => { dbLoadResolve = res; });
 
 export async function loadDB(statusBadgeEl) {
+  if (dbLoaded) return;
   try {
     const res = await fetch('https://cdn.jsdelivr.net/gh/mwgg/Airports@master/airports.json');
+    if (!res.ok) throw new Error('Failed to fetch airport database');
     const data = await res.json();
     for (const [icao, a] of Object.entries(data)) {
       if (a.lat && a.lon) {
@@ -28,15 +31,19 @@ export async function loadDB(statusBadgeEl) {
       }
     }
     if (statusBadgeEl) statusBadgeEl.style.display = 'none';
-    dbLoaded = true;
-    dbLoadResolve();
   } catch (e) {
     if (statusBadgeEl) {
       statusBadgeEl.setAttribute('variant', 'rose');
       statusBadgeEl.textContent = 'Offline';
     }
+  } finally {
+    dbLoaded = true;
+    dbLoadResolve();
   }
 }
+
+// Auto-trigger DB load on module import so it's ready immediately
+loadDB();
 
 export function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -72,7 +79,7 @@ export async function geocodeNominatim(query) {
 function findEmbeddedIata(text, iataTable) {
   if (!text) return null;
 
-  // 1. Search all parenthesized 3-letter tokens: e.g. (PEK), (CDG), (FRU)
+  // 1. Check all parenthesized 3-letter uppercase tokens: e.g. (PEK), (CDG), (FRU)
   const parenMatches = text.match(/\(([A-Za-z]{3})\)/g);
   if (parenMatches) {
     for (const pm of parenMatches) {
@@ -81,7 +88,7 @@ function findEmbeddedIata(text, iataTable) {
     }
   }
 
-  // 2. Search all standalone 3-letter words: e.g. "AYT" or "PEK / PVG"
+  // 2. Check all standalone 3-letter words: e.g. "AYT" or "PEK / PVG"
   const words = text.match(/\b[A-Za-z]{3}\b/g);
   if (words) {
     for (const w of words) {
@@ -93,7 +100,6 @@ function findEmbeddedIata(text, iataTable) {
   return null;
 }
 
-// mode: 'air' | 'sea' | 'road'
 export async function resolveLocation(query, mode = 'air') {
   if (!query || !query.trim()) return null;
 
@@ -104,14 +110,14 @@ export async function resolveLocation(query, mode = 'air') {
   if (!dbLoaded) await dbLoadPromise;
   const wantsMilitary = MILITARY_INTENT_RE.test(rawQ);
 
-  // 1. Direct 3-letter IATA code lookup
+  // Direct 3-letter IATA code match
   if (q.length === 3 && IATA[q]) {
     const apt = IATA[q];
     if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
     return { apt, method: 'IATA Match' };
   }
 
-  // 2. Embedded IATA lookup for ALL modes (Air, Sea, Road)
+  // Embedded IATA match for all modes
   const embedded = findEmbeddedIata(rawQ, IATA);
   if (embedded) {
     const apt = IATA[embedded];
@@ -119,7 +125,7 @@ export async function resolveLocation(query, mode = 'air') {
     return { apt, method: 'Embedded IATA Match' };
   }
 
-  // 3. OpenStreetMap/Nominatim geocoding fallback
+  // Fallback to Nominatim geocoding
   const geo = await geocodeNominatim(rawQ);
   if (geo && geo.length) {
     const tLat = +geo[0].lat, tLon = +geo[0].lon;
@@ -157,7 +163,7 @@ export async function resolveLocation(query, mode = 'air') {
     };
   }
 
-  // 4. City/Name Fallback in Airport DB
+  // Fallback to city/name match in airport DB
   const matches = DB.filter(a => a.city.toLowerCase() === ql || a.name.toLowerCase() === ql);
   if (matches.length > 0) return { apt: matches[0], method: 'City Fallback' };
 
