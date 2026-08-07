@@ -98,6 +98,15 @@ export async function resolveLocation(query, mode = 'air') {
 
     if (mode === 'air') {
       if (!dbLoaded) await dbLoadPromise;
+
+      // Prefer a city's known major hub (e.g. Paris -> CDG) over whatever
+      // airport happens to be geographically nearest.
+      const cityKey = placeName.toLowerCase();
+      const preferred = MAJOR_CITIES[cityKey] || MAJOR_CITIES[ql];
+      if (preferred && IATA[preferred.preferredIata]) {
+        return { apt: IATA[preferred.preferredIata], method: 'Preferred Hub Airport' };
+      }
+
       let best = null, minDist = Infinity;
       for (let i = 0; i < DB.length; i++) {
         if (DB[i].iata && DB[i].iata.length === 3) {
