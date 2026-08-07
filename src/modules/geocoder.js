@@ -69,19 +69,19 @@ export async function geocodeNominatim(query) {
   }
 }
 
-// Finds an IATA code inside free text:
-//  1. First checks for "(XXX)" — e.g. "Paris CDG Airport (CDG)"
-//  2. Then checks every standalone word for a 3-letter token that matches
-//     a real code in the loaded IATA table — e.g. "AYT Antalya Hava Limani"
-// Only returns a code if it actually exists in the loaded airport table,
-// so it won't false-positive on random 3-letter words like "the" or "for".
 function findEmbeddedIata(text, iataTable) {
-  const parenMatch = text.match(/\(([A-Za-z]{3})\)/);
-  if (parenMatch) {
-    const code = parenMatch[1].toUpperCase();
-    if (iataTable[code]) return code;
+  if (!text) return null;
+
+  // 1. Search all parenthesized 3-letter tokens: e.g. (PEK), (CDG), (FRU)
+  const parenMatches = text.match(/\(([A-Za-z]{3})\)/g);
+  if (parenMatches) {
+    for (const pm of parenMatches) {
+      const code = pm.replace(/[()]/g, '').toUpperCase();
+      if (iataTable[code]) return code;
+    }
   }
 
+  // 2. Search all standalone 3-letter words: e.g. "AYT" or "PEK / PVG"
   const words = text.match(/\b[A-Za-z]{3}\b/g);
   if (words) {
     for (const w of words) {
@@ -101,34 +101,25 @@ export async function resolveLocation(query, mode = 'air') {
   const q = rawQ.toUpperCase();
   const ql = rawQ.toLowerCase();
 
-  // 1. Sadece AIR modunda veya 3 harfli IATA kodu doğrudan girilince Havalimanı DB'sinde ara
-  if (mode === 'air' || (q.length === 3 && /^[A-Z]{3}$/.test(q))) {
-    if (!dbLoaded) await dbLoadPromise;
-    const wantsMilitary = MILITARY_INTENT_RE.test(rawQ);
+  if (!dbLoaded) await dbLoadPromise;
+  const wantsMilitary = MILITARY_INTENT_RE.test(rawQ);
 
-    if (q.length === 3 && IATA[q]) {
-      const apt = IATA[q];
-      if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
-      return { apt, method: 'IATA Match' };
-    }
-
-    // Handle free-text labels that contain an IATA code anywhere,
-    // parenthesized or not — e.g. "Paris Charles de Gaulle Airport (CDG)"
-    // or "AYT Antalya Hava Limani". Checked before falling through to
-    // Nominatim, so it short-circuits to a correct match with no network
-    // round-trip, and works for multi-leg labels too (grabs the FIRST
-    // valid code found, left to right).
-    if (mode === 'air') {
-      const embedded = findEmbeddedIata(rawQ, IATA);
-      if (embedded) {
-        const apt = IATA[embedded];
-        if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
-        return { apt, method: 'Embedded IATA Match' };
-      }
-    }
+  // 1. Direct 3-letter IATA code lookup
+  if (q.length === 3 && IATA[q]) {
+    const apt = IATA[q];
+    if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
+    return { apt, method: 'IATA Match' };
   }
 
-  // 2. SEA ve ROAD modunda doğrudan OpenStreetMap/Nominatim Şehir ve Kıyı Arama
+  // 2. Embedded IATA lookup for ALL modes (Air, Sea, Road)
+  const embedded = findEmbeddedIata(rawQ, IATA);
+  if (embedded) {
+    const apt = IATA[embedded];
+    if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
+    return { apt, method: 'Embedded IATA Match' };
+  }
+
+  // 3. OpenStreetMap/Nominatim geocoding fallback
   const geo = await geocodeNominatim(rawQ);
   if (geo && geo.length) {
     const tLat = +geo[0].lat, tLon = +geo[0].lon;
@@ -136,10 +127,6 @@ export async function resolveLocation(query, mode = 'air') {
     const countryName = geo[0].display_name.split(',').slice(-1)[0].trim();
 
     if (mode === 'air') {
-      if (!dbLoaded) await dbLoadPromise;
-
-      // Prefer a city's known major hub (e.g. Paris -> CDG) over whatever
-      // airport happens to be geographically nearest.
       const cityKey = placeName.toLowerCase();
       const preferred = MAJOR_CITIES[cityKey] || MAJOR_CITIES[ql];
       if (preferred && IATA[preferred.preferredIata]) {
@@ -170,8 +157,7 @@ export async function resolveLocation(query, mode = 'air') {
     };
   }
 
-  // Fallback
-  if (!dbLoaded) await dbLoadPromise;
+  // 4. City/Name Fallback in Airport DB
   const matches = DB.filter(a => a.city.toLowerCase() === ql || a.name.toLowerCase() === ql);
   if (matches.length > 0) return { apt: matches[0], method: 'City Fallback' };
 
