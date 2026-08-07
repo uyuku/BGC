@@ -1,7 +1,6 @@
-
 import './styles/main.css';
 import { loadDB, resolveLocation } from './modules/geocoder.js';
-import { initMap, toggleNauticalOverlay, updateMapData } from './modules/map.js';
+import { initMap, toggleNauticalOverlay, updateMapData, setMapTheme } from './modules/map.js';
 import { computeAirRoute } from './modules/air.js';
 import { computeSeaRoute } from './modules/sea.js';
 import { computeRoadRoute } from './modules/road.js';
@@ -80,8 +79,26 @@ function syncMap() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  initMap('map');
+  const initialTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  initMap('map', initialTheme);
   await loadDB(document.getElementById('statusBadge'));
+
+  // ---------- THEME TOGGLE ----------
+  const THEME_KEY = 'bgc-theme';
+  const themeProvider = document.getElementById('themeProvider');
+
+  function applyTheme(mode) {
+    document.documentElement.setAttribute('data-theme', mode);
+    themeProvider?.setAttribute('mode', mode);
+    setMapTheme(mode);
+  }
+
+  document.getElementById('themeToggle')?.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+    applyTheme(next);
+  });
 
   // 5 Template Butonu (Doğrudan Yerel Dinleyiciler)
   document.getElementById('btnTpl1')?.addEventListener('click', () => downloadSampleTemplate('simple'));
