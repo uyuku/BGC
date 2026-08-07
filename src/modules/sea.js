@@ -7,11 +7,7 @@ function toPoint(apt) {
   return [apt.lon, apt.lat];
 }
 
-export async function processSeaRoute(origText, destText, viaText, draftText) {
-  const r1 = await resolveLocation(origText, 'sea');
-  const r2 = await resolveLocation(destText, 'sea');
-  const rVia = viaText ? await resolveLocation(viaText, 'sea') : null;
-
+export function computeSeaRoute(r1, r2, rVia, draftText) {
   if (!(r1 && r1.apt && r2 && r2.apt)) {
     return { r1, r2, rVia, feature: null, km: null, error: null };
   }
@@ -51,4 +47,11 @@ export async function processSeaRoute(origText, destText, viaText, draftText) {
   } catch (e) {
     return { r1, r2, rVia, feature: null, km: null, error: e?.message || 'No sea route found' };
   }
+}
+
+export async function processSeaRoute(origText, destText, viaText, draftText) {
+  const r1 = await resolveLocation(origText, 'sea');
+  const r2 = await resolveLocation(destText, 'sea');
+  const rVia = viaText ? await resolveLocation(viaText, 'sea') : null;
+  return computeSeaRoute(r1, r2, rVia, draftText);
 }
