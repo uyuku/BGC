@@ -3,7 +3,6 @@ import { processRoadRoute } from './road.js';
 import { processAirRoute } from './air.js';
 import { dbLoadPromise } from './geocoder.js';
 
-// Global XLSX nesnesini yakala
 function getXLSX() {
   if (typeof window !== 'undefined' && window.XLSX) return window.XLSX;
   return null;
@@ -60,8 +59,6 @@ export function downloadSampleTemplate(type = 'simple') {
     const ws = XLSX.utils.aoa_to_sheet(sampleData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Routes');
-    
-    // SheetJS'in tüm tarayıcılarda desteklenen yerleşik kaydetme fonksiyonu
     XLSX.writeFile(wb, filename);
   } catch (err) {
     alert('Template generation error: ' + err.message);
@@ -119,17 +116,28 @@ export async function processBatchFile(file) {
     let arrCountryIdx = findColumnIndex(header, [/^arr.*country/, /^to.*country/, /^dest.*country/, /^arrival.*country/]);
     let arrCityIdx = findColumnIndex(header, [/^arr.*city/, /^to.*city/, /^dest.*city/, /^arrival.*city/]);
 
-    let depIdx = findColumnIndex(header, [/^depart/, /^origin/, /^from$/]);
-    let arrIdx = findColumnIndex(header, [/^arriv/, /^dest/, /^to$/]);
+    let depIdx = findColumnIndex(header, [
+      /^depart/, /^origin/, /^from$/, /^kalk[ıi]ş/, /^nereden/, /^ç[ıi]k[ıi]ş/, /^dep/, /^leg1/, /^parkur/
+    ]);
+    let arrIdx = findColumnIndex(header, [
+      /^arriv/, /^dest/, /^to$/, /^var[ıi]ş/, /^nereye/, /^varis/, /^arr/, /^leg2/
+    ]);
 
     let draftIdx = findColumnIndex(header, [/^draft/, /^vessel.*draft/, /^su.?cekimi/]);
     let viaIdx = findColumnIndex(header, [/^via/, /^waypoint/]);
 
     const isSplitFormat = (depCountryIdx !== -1 || depCityIdx !== -1) && (arrCountryIdx !== -1 || arrCityIdx !== -1);
-    const isCombinedFormat = depIdx !== -1 && arrIdx !== -1;
+    let isCombinedFormat = depIdx !== -1 && arrIdx !== -1;
 
+    // Fallback if headers are non-standard or missing: default to Column 0 and Column 1
     if (!isSplitFormat && !isCombinedFormat) {
-      throw new Error('Could not find departure/arrival columns in Excel.');
+      if (header.length >= 2) {
+        depIdx = 0;
+        arrIdx = 1;
+        isCombinedFormat = true;
+      } else {
+        throw new Error('Could not find departure/arrival columns in Excel.');
+      }
     }
 
     let airKmIdx = findColumnIndex(header, [/^air_km$/, /^km$/, /^air.?dist/]);
@@ -200,7 +208,6 @@ export async function processBatchFile(file) {
     const newWs = XLSX.utils.aoa_to_sheet(rows);
     wb.Sheets[sheetName] = newWs;
     
-    // Download için dosyayı değişkende saklıyoruz
     batchReadyWorkbook = wb;
     batchReadyFileName = file.name.replace(/\.(xlsx|xls)$/i, '') + '_calculated.xlsx';
 
@@ -216,4 +223,4 @@ export async function processBatchFile(file) {
   } finally {
     if (chooseBtn) chooseBtn.removeAttribute('disabled');
   }
-         }
+}
