@@ -21,14 +21,17 @@ export function calculateGreatCircleFeature(lon1, lat1, lon2, lat2, steps = 96) 
   return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } };
 }
 
-export async function processAirRoute(origText, destText) {
-  const r1 = await resolveLocation(origText);
-  const r2 = await resolveLocation(destText);
-
+export function computeAirRoute(r1, r2) {
   if (r1 && r1.apt && r2 && r2.apt) {
     const rawKm = haversine(r1.apt.lat, r1.apt.lon, r2.apt.lat, r2.apt.lon);
     const line = calculateGreatCircleFeature(r1.apt.lon, r1.apt.lat, r2.apt.lon, r2.apt.lat);
     return { r1, r2, rawKm, line };
   }
   return { r1, r2, rawKm: null, line: null };
+}
+
+export async function processAirRoute(origText, destText) {
+  const r1 = await resolveLocation(origText, 'air');
+  const r2 = await resolveLocation(destText, 'air');
+  return computeAirRoute(r1, r2);
 }
