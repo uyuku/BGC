@@ -69,13 +69,28 @@ export async function geocodeNominatim(query) {
   }
 }
 
-// Pulls the first 3-letter IATA code out of parenthesized text, e.g.
-// "Paris Charles de Gaulle Airport (CDG)" -> "CDG"
-// "Beijing Capital (PEK) / Shanghai Pudong (PVG) (aktarmalı)" -> "PEK" (first one)
-// "Delhi Indira Gandhi Intl. (DEL) / Mumbai (BOM)" -> "DEL" (first one)
-function extractEmbeddedIata(text) {
-  const match = text.match(/\(([A-Z]{3})\)/);
-  return match ? match[1] : null;
+// Finds an IATA code inside free text:
+//  1. First checks for "(XXX)" — e.g. "Paris CDG Airport (CDG)"
+//  2. Then checks every standalone word for a 3-letter token that matches
+//     a real code in the loaded IATA table — e.g. "AYT Antalya Hava Limani"
+// Only returns a code if it actually exists in the loaded airport table,
+// so it won't false-positive on random 3-letter words like "the" or "for".
+function findEmbeddedIata(text, iataTable) {
+  const parenMatch = text.match(/\(([A-Za-z]{3})\)/);
+  if (parenMatch) {
+    const code = parenMatch[1].toUpperCase();
+    if (iataTable[code]) return code;
+  }
+
+  const words = text.match(/\b[A-Za-z]{3}\b/g);
+  if (words) {
+    for (const w of words) {
+      const code = w.toUpperCase();
+      if (iataTable[code]) return code;
+    }
+  }
+
+  return null;
 }
 
 // mode: 'air' | 'sea' | 'road'
@@ -97,14 +112,15 @@ export async function resolveLocation(query, mode = 'air') {
       return { apt, method: 'IATA Match' };
     }
 
-    // Handle free-text labels that contain a parenthesized IATA code, e.g.
-    // "Paris Charles de Gaulle Airport (CDG)". Checked before falling
-    // through to Nominatim, so it short-circuits to a correct match with
-    // no network round-trip, and works for multi-leg labels too (grabs the
-    // FIRST code found, which should be the actual departure/arrival).
+    // Handle free-text labels that contain an IATA code anywhere,
+    // parenthesized or not — e.g. "Paris Charles de Gaulle Airport (CDG)"
+    // or "AYT Antalya Hava Limani". Checked before falling through to
+    // Nominatim, so it short-circuits to a correct match with no network
+    // round-trip, and works for multi-leg labels too (grabs the FIRST
+    // valid code found, left to right).
     if (mode === 'air') {
-      const embedded = extractEmbeddedIata(rawQ);
-      if (embedded && IATA[embedded]) {
+      const embedded = findEmbeddedIata(rawQ, IATA);
+      if (embedded) {
         const apt = IATA[embedded];
         if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
         return { apt, method: 'Embedded IATA Match' };
