@@ -40,7 +40,7 @@ export async function loadDB(statusBadgeEl) {
       if (statusBadgeEl) statusBadgeEl.style.display = 'none';
       break;
     } catch (e) {
-      // Try next endpoint
+      // Diğer CDN adresine geç
     }
   }
 
@@ -66,15 +66,19 @@ export function haversine(lat1, lon1, lat2, lon2) {
 const geocodeCache = new Map();
 let lastNominatimCall = 0;
 
-// Strips noise, slashes, and parenthesized text so Nominatim gets a clean location name
+// Nominatim için arama metnini temizler (intl., airport, parantezler ve aktarmalı gibi kelimeleri atar)
 function cleanQueryForGeocoding(text) {
   if (!text) return '';
   let cleaned = text;
+  
   if (cleaned.includes('/')) {
     cleaned = cleaned.split('/')[0];
   }
+  
   cleaned = cleaned.replace(/\([^)]*\)/g, '');
-  cleaned = cleaned.replace(/–/g, ' ').replace(/\s+/g, ' ').trim();
+  cleaned = cleaned.replace(/\b(intl\.|intl|international|airport|hava\s*liman[ıi]|aktarmal[ıi])\b/gi, '');
+  cleaned = cleaned.replace(/–|-/g, ' ').replace(/\s+/g, ' ').trim();
+  
   return cleaned;
 }
 
@@ -101,27 +105,30 @@ export async function geocodeNominatim(query) {
   }
 }
 
-// Extracts 3-letter IATA tokens inside parentheses or free text
-function findEmbeddedIata(text) {
-  if (!text) return null;
+// Metin içerisindeki 3 harfli IATA adaylarını çıkarır
+function extractIataCandidates(text) {
+  if (!text) return [];
+  const candidates = [];
 
+  // 1. Parantez içindeki 3 harfliler: (BUD), (PEK)
   const parenMatches = text.match(/\(([A-Za-z]{3})\)/g);
   if (parenMatches) {
-    for (const pm of parenMatches) {
-      const code = pm.replace(/[()]/g, '').toUpperCase();
-      return code;
-    }
+    parenMatches.forEach(m => {
+      const code = m.replace(/[()]/g, '').toUpperCase();
+      if (!candidates.includes(code)) candidates.push(code);
+    });
   }
 
+  // 2. Ayrı duran tüm 3 harfli kelimeler: "bud", "pek", "ayt"
   const words = text.match(/\b[A-Za-z]{3}\b/g);
   if (words) {
-    for (const w of words) {
+    words.forEach(w => {
       const code = w.toUpperCase();
-      if (IATA[code]) return code;
-    }
+      if (!candidates.includes(code)) candidates.push(code);
+    });
   }
 
-  return null;
+  return candidates;
 }
 
 export async function resolveLocation(query, mode = 'air') {
@@ -134,34 +141,36 @@ export async function resolveLocation(query, mode = 'air') {
   if (!dbLoaded) await dbLoadPromise;
   const wantsMilitary = MILITARY_INTENT_RE.test(rawQ);
 
-  // 1. Exact 3-letter IATA match in local DB
+  // 1. Doğrudan 3 harfli IATA girildiyse (örn: BUD)
   if (q.length === 3 && IATA[q]) {
     const apt = IATA[q];
     if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
     return { apt, method: 'IATA Match' };
   }
 
-  // 2. Embedded IATA match from text string (e.g. extracts BUD from "ferenc liszt (bud)")
-  const embeddedCode = findEmbeddedIata(rawQ);
-  if (embeddedCode) {
-    if (IATA[embeddedCode]) {
-      const apt = IATA[embeddedCode];
+  // 2. Metin içindeki 3 harfli IATA adaylarını kontrol et (örn: "ferenc liszt intl. airport bud" -> BUD)
+  const candidates = extractIataCandidates(rawQ);
+  for (const code of candidates) {
+    if (IATA[code]) {
+      const apt = IATA[code];
       if (apt.mil && !wantsMilitary) return { apt: null, blocked: true };
       return { apt, method: 'Embedded IATA Match' };
     }
+  }
 
-    // Fallback: DB offline/loading, query Nominatim using extracted IATA code directly
-    const iataGeo = await geocodeNominatim(embeddedCode);
+  // 3. IATA veritabanında bulunamadıysa, aday koda (örn: BUD) doğrudan Nominatim araması at
+  for (const code of candidates) {
+    const iataGeo = await geocodeNominatim(code);
     if (iataGeo && iataGeo.length) {
       const tLat = +iataGeo[0].lat, tLon = +iataGeo[0].lon;
       return {
-        apt: { lat: tLat, lon: tLon, name: embeddedCode, city: embeddedCode, country: '' },
+        apt: { lat: tLat, lon: tLon, name: code, city: code, country: '' },
         method: 'Geocoded IATA Fallback'
       };
     }
   }
 
-  // 3. Nominatim Fallback with Sanitized String
+  // 4. Temizlenmiş metin ile Nominatim araması (örn: "ferenc liszt")
   const geo = await geocodeNominatim(rawQ);
   if (geo && geo.length) {
     const tLat = +geo[0].lat, tLon = +geo[0].lon;
@@ -199,7 +208,7 @@ export async function resolveLocation(query, mode = 'air') {
     };
   }
 
-  // 4. Fallback to airport database city/name match
+  // 5. Şehir / İsim eşleşmesi fallback
   const matches = DB.filter(a => a.city.toLowerCase() === ql || a.name.toLowerCase() === ql);
   if (matches.length > 0) return { apt: matches[0], method: 'City Fallback' };
 
