@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-let scene, camera, renderer, globeGroup, earthMesh, atmosphereMesh, cloudsMesh;
+let scene, camera, renderer, globeGroup, earthMesh, atmosphereMesh;
 let arcLineMesh = null;
 let pulseMesh = null;
 let markerGroup = null;
@@ -16,11 +16,10 @@ let currentRoute = null;
 const GLOBE_RADIUS = 260;
 
 const TEXTURE_URLS = {
-  dark: '/textures/8k_earth_nightmap.jpg',
-  light: '/textures/8k_earth_daymap.jpg',
-  clouds: '/textures/solar-earth-clouds.jpg',
-  topology: '/textures/earth-topology.png',
-  water: '/textures/earth-water.png',
+  dark: './textures/8k_earth_nightmap.jpg',
+  light: './textures/8k_earth_daymap.jpg',
+  topology: './textures/earth-topology.png',
+  water: './textures/earth-water.png',
   fallbackDark: 'https://unpkg.com/three-globe/example/img/earth-night.jpg',
   fallbackLight: 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'
 };
@@ -218,23 +217,6 @@ function buildGlobeMeshes() {
   } else {
     material.map = cachedTextures[activeTheme];
     material.needsUpdate = true;
-  }
-
-  // Realistic Semi-Transparent Clouds Layer (in Light mode)
-  if (!isDark) {
-    const cloudGeometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.008, 96, 96);
-    const cloudTex = textureLoader.load(TEXTURE_URLS.clouds, (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-    });
-    const cloudMaterial = new THREE.MeshStandardMaterial({
-      map: cloudTex,
-      transparent: true,
-      opacity: 0.38,
-      blending: THREE.NormalBlending,
-      depthWrite: false
-    });
-    cloudsMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
-    globeGroup.add(cloudsMesh);
   }
 
   // Atmospheric Glowing Rim Layer
@@ -497,11 +479,6 @@ function animate(time = 0) {
 
     const scale = 1 + Math.sin(time * 0.008) * 0.25;
     pulseMesh.scale.set(scale, scale, scale);
-  }
-
-  // Gentle atmospheric cloud drift
-  if (cloudsMesh) {
-    cloudsMesh.rotation.y += 0.00015;
   }
 
   if (renderer && scene && camera) {
