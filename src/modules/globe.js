@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import dayMapUrl from '../assets/textures/earth-day-8k.jpg';
+import nightMapUrl from '../assets/textures/earth-night-8k.jpg';
 
 let scene, camera, renderer, globeGroup, earthMesh, atmosphereMesh;
 let arcLineMesh = null;
@@ -16,12 +18,8 @@ let currentRoute = null;
 const GLOBE_RADIUS = 260;
 
 const TEXTURE_URLS = {
-  dark: './textures/8k_earth_nightmap.jpg',
-  light: './textures/8k_earth_daymap.jpg',
-  topology: './textures/earth-topology.png',
-  water: './textures/earth-water.png',
-  fallbackDark: 'https://unpkg.com/three-globe/example/img/earth-night.jpg',
-  fallbackLight: 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'
+  dark: nightMapUrl,
+  light: dayMapUrl
 };
 
 const textureLoader = new THREE.TextureLoader();
@@ -205,13 +203,8 @@ function buildGlobeMeshes() {
         material.needsUpdate = true;
       },
       undefined,
-      () => {
-        textureLoader.load(urlFallback, (tex) => {
-          tex.colorSpace = THREE.SRGBColorSpace;
-          cachedTextures[activeTheme] = tex;
-          material.map = tex;
-          material.needsUpdate = true;
-        });
+      (err) => {
+        console.error('Failed to load 8K Earth texture:', err);
       }
     );
   } else {
