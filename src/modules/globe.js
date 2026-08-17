@@ -16,8 +16,8 @@ let currentRoute = null;
 const GLOBE_RADIUS = 260;
 
 const TEXTURE_URLS = {
-  dark: '/textures/solar-earth-night.jpg',
-  light: '/textures/solar-earth-day.jpg',
+  dark: '/textures/8k_earth_nightmap.jpg',
+  light: '/textures/8k_earth_daymap.jpg',
   clouds: '/textures/solar-earth-clouds.jpg',
   topology: '/textures/earth-topology.png',
   water: '/textures/earth-water.png',
