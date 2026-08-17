@@ -172,11 +172,9 @@ export function initGlobe(containerId = 'globeCanvas') {
 function buildGlobeMeshes() {
   if (earthMesh) globeGroup.remove(earthMesh);
   if (atmosphereMesh) globeGroup.remove(atmosphereMesh);
-  if (cloudsMesh) globeGroup.remove(cloudsMesh);
 
   const isDark = activeTheme === 'dark';
   const urlPrimary = isDark ? TEXTURE_URLS.dark : TEXTURE_URLS.light;
-  const urlFallback = isDark ? TEXTURE_URLS.fallbackDark : TEXTURE_URLS.fallbackLight;
 
   // Immediate high-quality procedural texture to prevent blank flash
   const fallbackTexture = createProceduralEarthTexture(activeTheme);
