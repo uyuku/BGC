@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Better Great Circle</title>
+  <meta name="color-scheme" content="light dark" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <!-- Resolve theme before paint -->
+  <script>
+    window.__bgcTheme = (function () {
+      try {
+        var stored = localStorage.getItem('bgc-theme');
+        if (stored === 'dark' || stored === 'light') return stored;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      } catch (e) { return 'light'; }
+    })();
+    document.documentElement.setAttribute('data-theme', window.__bgcTheme);
+  </script>
+
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- SheetJS Standalone Excel Library -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+  <!-- Jelly UI Web Components & MapLibre -->
+  <script type="module" src="https://jelly-ui.com/package.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.2.0/dist/maplibre-gl.css" rel="stylesheet" />
+
+  <!-- CSS Styles -->
+  <link rel="stylesheet" href="/src/styles/main.css" />
+</head>
+<body data-view="landing">
+
+  <jelly-theme id="themeProvider" accent="#6b829e">
+    <script>document.getElementById('themeProvider').setAttribute('mode', window.__bgcTheme);</script>
+    
+    <!-- AIRPLANE SWEEP TRANSITION OVERLAY -->
+    <div id="airplaneTransition" class="airplane-transition" aria-hidden="true">
+      <div class="airplane-track">
+        <div class="contrail-trail"></div>
+        <div class="airplane-flyer">
+          <svg viewBox="0 0 64 64" fill="currentColor">
+            <path d="M28 6 L36 6 L36 24 L58 36 L58 42 L36 34 L36 50 L44 56 L44 60 L32 57 L20 60 L20 56 L28 50 L28 34 L6 42 L6 36 L28 24 Z" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrapper">
+
+      <!-- HEADER -->
+      <header class="header" id="mainHeader">
+        <div class="brand" id="brandHomeBtn" style="cursor: pointer;">
+          <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.4" />
+            <circle cx="20" cy="20" r="1.6" fill="currentColor" />
+            <path d="M20 4 L23 17 L20 20 L17 17 Z" fill="currentColor" />
+            <path d="M20 36 L17 23 L20 20 L23 23 Z" fill="currentColor" opacity="0.35" />
+            <path d="M4 20 L17 17 L20 20 L17 23 Z" fill="currentColor" opacity="0.6" />
+            <path d="M36 20 L23 23 L20 20 L23 17 Z" fill="currentColor" opacity="0.6" />
+          </svg>
+          <div class="brand-text">
+            <h1 class="title">Better Great Circle</h1>
+            <p class="tagline">Air, sea and road distance instruments</p>
+          </div>
+        </div>
+
+        <div class="header-controls">
+          <div class="header-mode-nav">
+            <jelly-button id="navDirectBtn" variant="platinum" size="small">Direct View</jelly-button>
+            <jelly-button id="navFullBtn" variant="platinum" size="small">Full Itinerary</jelly-button>
+          </div>
+
+          <jelly-badge id="statusBadge" variant="graphite" live>Connecting...</jelly-badge>
+          <jelly-tooltip text="Toggle light/dark theme" placement="bottom">
+            <jelly-icon-button id="themeToggle" label="Toggle dark mode" shape="circle" variant="platinum" size="medium">
+              <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4.2" />
+                <path d="M12 2.5v2.4M12 19.1v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7" />
+              </svg>
+              <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 14.3A8.3 8.3 0 1 1 9.7 4a6.7 6.7 0 0 0 10.3 10.3Z" />
+              </svg>
+            </jelly-icon-button>
+          </jelly-tooltip>
+        </div>
+      </header>
+
+      <jelly-divider id="mainDivider"></jelly-divider>
+
+      <!-- 1. LANDING / MODE SELECTION VIEW -->
+      <div id="landingView" class="view-panel active">
+        <div class="landing-simple-wrapper">
+          
+          <!-- Centered Brand Hero -->
+          <div class="landing-brand-hero">
+            <svg class="brand-mark landing-brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.4" />
+              <circle cx="20" cy="20" r="1.6" fill="currentColor" />
+              <path d="M20 4 L23 17 L20 20 L17 17 Z" fill="currentColor" />
+              <path d="M20 36 L17 23 L20 20 L23 23 Z" fill="currentColor" opacity="0.35" />
+              <path d="M4 20 L17 17 L20 20 L17 23 Z" fill="currentColor" opacity="0.6" />
+              <path d="M36 20 L23 23 L20 20 L23 17 Z" fill="currentColor" opacity="0.6" />
+            </svg>
+            <h1 class="landing-brand-title">Better Great Circle</h1>
+            <p class="landing-brand-subtitle">Air, sea and road distance instruments</p>
+          </div>
+
+          <!-- Hero Mode Cards with Ambient Background Icons -->
+          <div class="landing-options-grid">
+            <!-- Direct View Button Card -->
+            <jelly-card class="simple-mode-btn" id="chooseDirectCard">
+              <div class="mode-card-bg-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+                </svg>
+              </div>
+              <div class="simple-mode-inner">
+                <div class="simple-mode-text">
+                  <span class="simple-mode-title">Direct View</span>
+                  <span class="simple-mode-subtitle">Point-to-point flight &bull; 3D Globe</span>
+                </div>
+              </div>
+            </jelly-card>
+
+            <!-- Full Itinerary Button Card -->
+            <jelly-card class="simple-mode-btn" id="chooseFullCard">
+              <div class="mode-card-bg-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                  <path d="M2 12h20" />
+                </svg>
+              </div>
+              <div class="simple-mode-inner">
+                <div class="simple-mode-text">
+                  <span class="simple-mode-title">Full Itinerary</span>
+                  <span class="simple-mode-subtitle">Air, Sea, Road, Hotel &bull; Batch</span>
+                </div>
+              </div>
+            </jelly-card>
+          </div>
+
+          <!-- Landing Bottom Footer -->
+          <div class="landing-footer">
+            Made by Necdet Omer Barut
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. DIRECT VIEW WORKSPACE -->
+      <div id="directView" class="view-panel">
+        <section class="section">
+          <main class="grid">
+            <jelly-card>
+              <div class="panel">
+                <jelly-label for="directOrig">Departure</jelly-label>
+                <jelly-input id="directOrig" placeholder="IATA, CITY, COUNTRY..."></jelly-input>
+                <div class="meta" id="directOrigMeta"><em>Type an origin above</em></div>
+              </div>
+            </jelly-card>
+
+            <jelly-card>
+              <div class="center-card">
+                <div class="direct-dist-value" id="directDist">-- <span class="dist-unit">km</span></div>
+                <div class="dist-sub" id="directRoute">Awaiting input</div>
+                <div class="direct-sub-dist" id="directSubDist">-- NM</div>
+                <div class="swap-row" style="margin-top: 0.6rem;">
+                  <jelly-tooltip text="Swap departure &amp; arrival" placement="top">
+                    <jelly-icon-button id="directSwapBtn" label="Swap" shape="circle" variant="platinum" size="small">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1rem;height:1rem;" aria-hidden="true">
+                        <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
+                      </svg>
+                    </jelly-icon-button>
+                  </jelly-tooltip>
+                </div>
+              </div>
+            </jelly-card>
+
+            <jelly-card>
+              <div class="panel">
+                <jelly-label for="directDest" class="right-align">Arrival</jelly-label>
+                <jelly-input id="directDest" placeholder="IATA, CITY, COUNTRY..." class="right-align"></jelly-input>
+                <div class="meta right-align" id="directDestMeta"><em>Type a destination above</em></div>
+              </div>
+            </jelly-card>
+          </main>
+        </section>
+
+        <!-- 3D INTERACTIVE GLOBE (Seamless, Organic & Unboxed) -->
+        <div class="seamless-globe-container">
+          <div id="globeCanvas" class="seamless-globe-canvas"></div>
+        </div>
+      </div>
+
+      <!-- 3. FULL ITINERARY WORKSPACE -->
+      <div id="fullView" class="view-panel">
+        <!-- AIR DISTANCE CALCULATOR -->
+        <section class="section" id="section-air">
+          <div class="section-header section-header--air">
+            <h2 class="section-title">Air Distance</h2>
+          </div>
+          <main class="grid">
+            <jelly-card>
+              <div class="panel">
+                <jelly-label for="orig">Departure</jelly-label>
+                <jelly-input id="orig" placeholder="IATA, CITY, COUNTRY..."></jelly-input>
+                <div class="meta" id="origMeta"><em>Type an origin above</em></div>
+              </div>
+            </jelly-card>
+
+            <jelly-card>
+              <div class="center-card">
+                <div class="dist-title">Air Distance</div>
+                <div class="dist-value" id="dist">-- km</div>
+                <div class="dist-sub" id="route">Awaiting input</div>
+                <jelly-tooltip text="Apply standard +8% airway detour multiplier">
+                  <jelly-switch id="detourToggle" size="small" variant="azure">+8% detour</jelly-switch>
+                </jelly-tooltip>
+                <jelly-tooltip text="Swap departure and arrival">
+                  <jelly-icon-button id="airSwapBtn" label="Swap departure and arrival" shape="circle" variant="platinum" size="small">⇄</jelly-icon-button>
+                </jelly-tooltip>
+              </div>
+            </jelly-card>
+
+            <jelly-card>
+              <div class="panel">
+                <jelly-label for="dest" class="right-align">Arrival</jelly-label>
+                <jelly-input id="dest" placeholder="IATA, CITY, COUNTRY..." class="right-align"></jelly-input>
+                <div class="meta right-align" id="destMeta"><em>Type a destination above</em></div>
+              </div>
+            </jelly-card>
+          </main>
+        </section>
+
+        <!-- SEA ROUTE CALCULATOR -->
+        <section class="section" id="section-sea">
+          <div class="section-header section-header--sea">
+            <h2 class="section-title">Sea Route</h2>
+          </div>
+          <main class="grid">
+            <jelly-card>
+              <div class="panel">
+                <jelly-label for="seaOrig">Departure Port / City</jelly-label>
+                <jelly-input id="seaOrig" placeholder="CITY, COUNTRY..."></jelly-input>
+                <div class="meta" id="seaOrigMeta"><em>Type a city or country above</em></div>
+              </div>
+            </jelly-card>
+
+            <jelly-card>
+              <div class="center-card">
+                <div class="dist-title">Sea Passage Distance</div>
+                <div class="dist-value" id="seaDist">-- km</div>
+                <div class="dist-sub" id="seaDuration">-- NM · -- h</div>
+                <div class="dist-sub" id="seaRoute" style="font-size: 0.74rem; margin-top: 0.15rem;">Awaiting input</div>
+                <div class="passages-container" id="seaPassages"></div>
+                <jelly-tooltip text="Swap departure and arrival port">
+                  <jelly-icon-button id="seaSwapBtn" label="Swap departure and arrival" shape="circle" variant="platinum" size="small">⇄</jelly-icon-button>
+                </jelly-tooltip>
+              </div>
+            </jelly-card>
+
+            <jelly-card>
+              <div class="panel">
+                <jelly-label for="seaDest" class="right-align">Arrival Port / City</jelly-label>
+                <jelly-input id="seaDest" placeholder="CITY, COUNTRY..." class="right-align"></jelly-input>
+                <div class="meta right-align" id="seaDestMeta"><em>Type a destination above</em></div>
+              </div>
+            </jelly-card>
+          </main>
+
+          <jelly-collapsible class="collapsible-highlight">
+            <span slot="header" class="collapsible-header">
+              <jelly-badge class="collapsible-header-tag">Advanced</jelly-badge>
+              Sea Route Options (Waypoints, Vessel Draft &amp; Speed)
+            </span>
+            <div class="panel" style="display: flex; gap: 1.25rem; flex-wrap: wrap;">
+              <div style="flex: 2; min-width: 220px;">
+                <jelly-label for="seaVia" style="font-size: 0.75rem;">Via Waypoint (Force route through port/strait)</jelly-label>
+                <jelly-input id="seaVia" placeholder="e.g. Skagen, Denmark"></jelly-input>
+              </div>
+              <div style="flex: 1; min-width: 140px;">
+                <jelly-label for="seaDraftInput" style="font-size: 0.75rem;">Vessel Draft (m)</jelly-label>
+                <jelly-input id="seaDraftInput" type="number" value="14" placeholder="14" min="0" step="0.5" label="Vessel Draft (m)"></jelly-input>
+              </div>
+              <div style="flex: 1; min-width: 140px;">
+                <jelly-label for="seaSpeedInput" style="font-size: 0.75rem;">Cruising Speed (knots)</jelly-label>
+                <jelly-input id="seaSpeedInput" type="number" value="22" placeholder="22" min="1" step="0.5" label="Cruising Speed (knots)"></jelly-input>
+              </div>
+            </div>
+          </jelly-collapsible>
+        </section>
+
+        <!-- ROAD DISTANCE CALCULATOR -->
+        <section class="section" id="section-road">
+          <div class="section-header section-header--road">
+            <h2 class="section-title">Road Distance</h2>
+          </div>
+          <main class="grid">
+            <jelly-card>
+              <div class="panel">
+                <jelly-label for="roadOrig">Departure City / Address</jelly-label>
+                <jelly-input id="roadOrig" placeholder="CITY, COUNTRY..."></jelly-input>
+                <div class="meta" id="roadOrigMeta"><em>Type an origin above</em></div>
+              </div>
+            </jelly-card>
+
+            <jelly-card>
+              <div class="center-card">
+                <div class="dist-title">Driving Distance</div>
+                <div class="dist-value" id="roadDist">-- km</div>
+                <div class="dist-sub" id="roadDuration">-- h -- min</div>
+                <div class="dist-sub" id="roadRoute" style="font-size: 0.74rem; margin-top: 0.15rem;">Awaiting input</div>
+                <jelly-tooltip text="Swap departure and arrival address">
+                  <jelly-icon-button id="roadSwapBtn" label="Swap departure and arrival" shape="circle" variant="platinum" size="small">⇄</jelly-icon-button>
+                </jelly-tooltip>
+              </div>
+            </jelly-card>
+
+            <jelly-card>
+              <div class="panel">
+                <jelly-label for="roadDest" class="right-align">Arrival City / Address</jelly-label>
+                <jelly-input id="roadDest" placeholder="CITY, COUNTRY..." class="right-align"></jelly-input>
+                <div class="meta right-align" id="roadDestMeta"><em>Type a destination above</em></div>
+              </div>
+            </jelly-card>
+          </main>
+        </section>
+
+        <!-- HOTEL GUEST TRAVEL CALCULATOR -->
+        <section class="section" id="section-hotel">
+          <div class="section-header section-header--hotel">
+            <h2 class="section-title">Hotel Guest Travel</h2>
+          </div>
+
+          <jelly-card>
+            <div class="panel">
+              <div style="display: flex; gap: 1.25rem; flex-wrap: wrap;">
+                <div style="flex: 2; min-width: 220px;">
+                  <jelly-label for="hotelLocation">Hotel Location</jelly-label>
+                  <jelly-input id="hotelLocation" placeholder="Address, city or GPS coordinates..."></jelly-input>
+                  <div class="meta" id="hotelLocationMeta" style="border-top: none; padding-top: 0.2rem;">
+                    <em>Address or GPS: 41.0082, 28.9784</em>
+                  </div>
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                  <jelly-label style="margin-bottom: 0.35rem; display: block;">Last-mile Mode</jelly-label>
+                  <jelly-segmented id="lastMileSegmented" value="taxi" size="small">
+                    <jelly-segment value="taxi" selected>Taxi</jelly-segment>
+                    <jelly-segment value="shuttle">Shuttle</jelly-segment>
+                    <jelly-segment value="transit">Transit</jelly-segment>
+                  </jelly-segmented>
+                </div>
+              </div>
+              <jelly-switch id="includeLastMileToggle" size="small" variant="azure" checked style="margin-top: 0.2rem;">
+                Include last-mile leg in total
+              </jelly-switch>
+            </div>
+          </jelly-card>
+
+          <main class="grid">
+            <jelly-card>
+              <div class="panel">
+                <jelly-label for="guestOrigin">Guest Origin</jelly-label>
+                <jelly-input id="guestOrigin" placeholder="CITY, COUNTRY or IATA..."></jelly-input>
+                <div class="meta" id="guestOriginMeta"><em>Type a guest's departure city above</em></div>
+              </div>
+            </jelly-card>
+
+            <jelly-card>
+              <div class="center-card">
+                <div class="dist-title">Total Guest Travel Distance</div>
+                <div class="dist-value" id="hotelTotalDist">-- km</div>
+                <div class="dist-sub" id="hotelBreakdown">Set a hotel location above</div>
+              </div>
+            </jelly-card>
+
+            <jelly-card>
+              <div class="panel">
+                <jelly-label class="right-align">Route</jelly-label>
+                <div class="meta right-align" id="hotelRouteMeta"><em>Air leg to nearest airport, then last-mile to hotel</em></div>
+              </div>
+            </jelly-card>
+          </main>
+
+          <jelly-collapsible class="collapsible-highlight">
+            <span slot="header" class="collapsible-header">
+              <jelly-badge class="collapsible-header-tag">Optional</jelly-badge>
+              Hotel Stay Carbon Emissions Calculator
+            </span>
+            <div class="panel">
+              <div class="meta" style="border-top: none; padding-top: 0; padding-bottom: 0.5rem;">
+                <em>Look up room-night factors from <a href="https://greenview.sg/resources/hotel-footprinting-tool/" target="_blank" rel="noopener">Greenview's Hotel Footprinting Tool</a>.</em>
+              </div>
+              <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-end;">
+                <div style="flex: 1; min-width: 140px;">
+                  <jelly-label for="roomNightsInput" style="font-size: 0.75rem;">Room-nights</jelly-label>
+                  <jelly-input id="roomNightsInput" type="number" value="2" placeholder="2" min="1" step="1" label="Room-nights"></jelly-input>
+                </div>
+                <div style="flex: 1; min-width: 180px;">
+                  <jelly-label for="roomNightFactor" style="font-size: 0.75rem;">kg CO2e / room-night</jelly-label>
+                  <jelly-input id="roomNightFactor" type="number" placeholder="from Greenview HFT" label="kg CO2e per room-night"></jelly-input>
+                </div>
+                <div style="flex: 1; min-width: 160px; text-align: right;">
+                  <div class="dist-title" style="text-align: right;">Stay Total</div>
+                  <div class="dist-value" id="hotelStayTotal" style="justify-content: flex-end; font-size: 1.3rem;">-- <span class="dist-unit">kg CO2e</span></div>
+                </div>
+              </div>
+            </div>
+          </jelly-collapsible>
+        </section>
+
+        <!-- ROUTE MAP & NAUTICAL CHART -->
+        <section class="section" id="section-chart">
+          <div class="section-header section-header--map">
+            <h2 class="section-title">Route Map &amp; Nautical Chart</h2>
+          </div>
+          <div class="map-controls-bar">
+            <div class="map-legend">
+              <jelly-badge variant="azure">Air route</jelly-badge>
+              <jelly-badge variant="mint">Sea route</jelly-badge>
+              <jelly-badge variant="amber">Road route</jelly-badge>
+              <jelly-badge variant="graphite" style="--jelly-fill: #83759A; --jelly-label: #ffffff;">Hotel guest route</jelly-badge>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+              <jelly-button id="fitBoundsBtn" variant="platinum" size="small">Fit to Route</jelly-button>
+              <jelly-switch id="nauticalOverlayToggle" size="small" variant="azure" checked>
+                Show OpenSeaMap Seamarks
+              </jelly-switch>
+            </div>
+          </div>
+          <jelly-card>
+            <div id="map"></div>
+          </jelly-card>
+        </section>
+
+        <!-- BATCH XLSX CALCULATOR -->
+        <section class="section" id="section-batch">
+          <div class="section-header section-header--batch">
+            <h2 class="section-title">Batch Calculator (.xlsx)</h2>
+          </div>
+          <jelly-card>
+            <div class="batch-dropzone" id="batchDropzone">
+              
+              <jelly-alert tone="info" size="medium" style="width: 100%;">
+                Choose a template below. Upload your file to calculate <strong>air_km</strong>, <strong>sea_km</strong>, and <strong>road_km</strong> in bulk.
+              </jelly-alert>
+
+              <jelly-switch id="airOnlyToggle" size="small" variant="azure">
+                Air distance only (much faster — dedups locations first, skips sea &amp; road)
+              </jelly-switch>
+
+              <div class="batch-actions">
+                <jelly-button variant="azure" size="small" id="btnTpl1">T1: Simple</jelly-button>
+                <jelly-button variant="azure" size="small" id="btnTpl2">T2: Split City/Country</jelly-button>
+                <jelly-button variant="azure" size="small" id="btnTpl3">T3: Vessel Draft</jelly-button>
+                <jelly-button variant="azure" size="small" id="btnTpl4">T4: Sea Waypoint</jelly-button>
+                <jelly-button variant="azure" size="small" id="btnTpl5">T5: Master Suite</jelly-button>
+                <jelly-button variant="azure" size="small" id="btnTpl6">T6: Hotel Guest Travel</jelly-button>
+
+                <input type="file" id="batchFileInput" accept=".xlsx,.xls,.csv,.tsv" style="display:none" />
+                <jelly-button variant="mint" size="small" id="batchChooseBtn">Choose file (.xlsx, .csv)</jelly-button>
+                <jelly-button variant="rose" size="small" id="batchCancelBtn" style="display:none;">Stop Processing</jelly-button>
+              </div>
+              
+              <div class="batch-filename" id="batchFilename">or drag a .xlsx / .csv file here</div>
+
+              <jelly-progress id="batchProgressBar" value="0" max="100" variant="mint" style="display: none; width: 100%; max-width: 480px;"></jelly-progress>
+              <div id="batchProgress" style="font-size: 0.8rem; color: var(--jelly-color-foreground-muted); min-height: 1.2em;"></div>
+
+              <div class="batch-status" id="batchStatus"></div>
+              <jelly-button variant="mint" size="small" id="batchDownloadBtn" style="display:none;">
+                Download completed file
+              </jelly-button>
+            </div>
+          </jelly-card>
+        </section>
+      </div>
+
+    </div>
+  </jelly-theme>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
