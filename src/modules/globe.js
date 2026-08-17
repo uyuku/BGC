@@ -210,12 +210,12 @@ function buildGlobeMeshes() {
     material.needsUpdate = true;
   }
 
-  // Atmospheric Glowing Rim Layer
-  const atmosGeometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.018, 64, 64);
+  // Atmospheric Glowing Rim Layer (Extremely subtle horizon falloff)
+  const atmosGeometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.004, 64, 64);
   const atmosMaterial = new THREE.MeshBasicMaterial({
-    color: isDark ? 0x60a5fa : 0x38bdf8,
+    color: isDark ? 0x38bdf8 : 0x60a5fa,
     transparent: true,
-    opacity: isDark ? 0.15 : 0.12,
+    opacity: isDark ? 0.06 : 0.03,
     side: THREE.BackSide
   });
   atmosphereMesh = new THREE.Mesh(atmosGeometry, atmosMaterial);
@@ -287,7 +287,7 @@ export function updateGlobeRoute(r1, r2) {
 
   const numPoints = 120;
   // Sleek low-altitude geodesic arc that tightly hugs the Earth curvature
-  const maxAltitude = Math.min(8, Math.max(2.5, angle * 3.8));
+  const maxAltitude = Math.min(7, Math.max(2.0, angle * 3.2));
 
   for (let i = 0; i <= numPoints; i++) {
     const t = i / numPoints;
@@ -301,25 +301,25 @@ export function updateGlobeRoute(r1, r2) {
       vt.copy(v1);
     }
 
-    const alt = 1.2 + maxAltitude * 4 * t * (1 - t);
+    const alt = 0.8 + maxAltitude * 4 * t * (1 - t);
     const radius = GLOBE_RADIUS + alt;
     curvePoints.push(vt.multiplyScalar(radius));
   }
 
-  // Create 3D Curved Flight Arc Tube (theme-matching sky blue)
+  // Create 3D Curved Flight Arc Tube (sleek 0.7 radius)
   const curve = new THREE.CatmullRomCurve3(curvePoints);
-  const tubeGeometry = new THREE.TubeGeometry(curve, 120, 1.8, 8, false);
+  const tubeGeometry = new THREE.TubeGeometry(curve, 120, 0.7, 8, false);
   const tubeMaterial = new THREE.MeshBasicMaterial({
     color: flightColor,
     transparent: true,
-    opacity: 0.95
+    opacity: 0.92
   });
   arcLineMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
   arcLineMesh.renderOrder = 999;
   globeGroup.add(arcLineMesh);
 
-  // Create flying glowing photon pulse traversing the arc
-  const pulseGeo = new THREE.SphereGeometry(4.2, 16, 16);
+  // Create flying glowing photon pulse traversing the arc (subtle 1.0 radius)
+  const pulseGeo = new THREE.SphereGeometry(1.0, 16, 16);
   const pulseMat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
     transparent: true,
@@ -334,27 +334,41 @@ export function updateGlobeRoute(r1, r2) {
 }
 
 function addWaypointBeacon(pos, colorHex) {
-  // Center Pin Sphere
-  const dotGeo = new THREE.SphereGeometry(3.2, 16, 16);
+  // Center Pin Jewel Dot
+  const dotGeo = new THREE.SphereGeometry(1.2, 16, 16);
   const dotMat = new THREE.MeshBasicMaterial({ color: colorHex });
   const dot = new THREE.Mesh(dotGeo, dotMat);
-  dot.position.copy(pos.clone().multiplyScalar(1.012));
+  dot.position.copy(pos.clone().multiplyScalar(1.003));
   dot.renderOrder = 998;
   markerGroup.add(dot);
 
-  // Pulsating Outer Ring
-  const ringGeo = new THREE.RingGeometry(4.2, 6.8, 32);
+  // Inner Ground Ring
+  const ringGeo = new THREE.RingGeometry(1.4, 2.2, 32);
   const ringMat = new THREE.MeshBasicMaterial({
     color: colorHex,
     side: THREE.DoubleSide,
     transparent: true,
-    opacity: 0.85
+    opacity: 0.7
   });
   const ring = new THREE.Mesh(ringGeo, ringMat);
-  ring.position.copy(pos.clone().multiplyScalar(1.015));
+  ring.position.copy(pos.clone().multiplyScalar(1.004));
   ring.lookAt(new THREE.Vector3(0, 0, 0));
   ring.renderOrder = 998;
   markerGroup.add(ring);
+
+  // Subtle Outer Ping Ring
+  const outerRingGeo = new THREE.RingGeometry(2.6, 3.2, 32);
+  const outerRingMat = new THREE.MeshBasicMaterial({
+    color: colorHex,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.35
+  });
+  const outerRing = new THREE.Mesh(outerRingGeo, outerRingMat);
+  outerRing.position.copy(pos.clone().multiplyScalar(1.004));
+  outerRing.lookAt(new THREE.Vector3(0, 0, 0));
+  outerRing.renderOrder = 998;
+  markerGroup.add(outerRing);
 }
 
 let targetCameraZ = 400;
@@ -468,7 +482,7 @@ function animate(time = 0) {
     const pos = curvePoints[iLow].clone().lerp(curvePoints[iHigh], frac);
     pulseMesh.position.copy(pos);
 
-    const scale = 1 + Math.sin(time * 0.008) * 0.25;
+    const scale = 1 + Math.sin(time * 0.008) * 0.15;
     pulseMesh.scale.set(scale, scale, scale);
   }
 
