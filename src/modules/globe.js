@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import dayMapUrl from '../assets/textures/earth-day-8k.jpg';
-import nightMapUrl from '../assets/textures/earth-night-8k.jpg';
+import dayMapUrl from '../assets/textures/earth-day.jpg';
+import nightMapUrl from '../assets/textures/earth-night.jpg';
 
 let scene, camera, renderer, globeGroup, earthMesh, atmosphereMesh;
 let arcLineMesh = null;
@@ -25,6 +25,25 @@ const TEXTURE_URLS = {
 const textureLoader = new THREE.TextureLoader();
 const cachedTextures = {};
 
+// Eager preload textures immediately on module load
+textureLoader.load(dayMapUrl, (tex) => {
+  tex.colorSpace = THREE.SRGBColorSpace;
+  cachedTextures['light'] = tex;
+  if (earthMesh && activeTheme === 'light') {
+    earthMesh.material.map = tex;
+    earthMesh.material.needsUpdate = true;
+  }
+});
+
+textureLoader.load(nightMapUrl, (tex) => {
+  tex.colorSpace = THREE.SRGBColorSpace;
+  cachedTextures['dark'] = tex;
+  if (earthMesh && activeTheme === 'dark') {
+    earthMesh.material.map = tex;
+    earthMesh.material.needsUpdate = true;
+  }
+});
+
 // Coordinate conversion: (lat, lon) in degrees to 3D Cartesian coordinates on sphere
 export function latLonToVector3(lat, lon, radius = GLOBE_RADIUS) {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -45,10 +64,10 @@ function createProceduralEarthTexture(theme = 'dark') {
   const ctx = canvas.getContext('2d');
 
   const isDark = theme === 'dark';
-  const oceanColor = isDark ? '#0b1324' : '#1d4ed8';
-  const oceanDeep = isDark ? '#070b16' : '#172554';
+  const oceanColor = isDark ? '#0b1324' : '#1e4887';
+  const oceanDeep = isDark ? '#070b16' : '#143260';
   const landBase = isDark ? '#1a2c42' : '#4d7c3a';
-  const landHigh = isDark ? '#283e58' : '#739e4a';
+  const landHigh = isDark ? '#283e58' : '#689642';
   const gridColor = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.08)';
 
   // Gradient Oceans
@@ -76,6 +95,64 @@ function createProceduralEarthTexture(theme = 'dark') {
     ctx.lineTo(canvas.width, y);
     ctx.stroke();
   }
+
+  function toCanvas(lon, lat) {
+    return [
+      ((lon + 180) / 360) * canvas.width,
+      ((90 - lat) / 180) * canvas.height
+    ];
+  }
+
+  function drawPoly(pts, color) {
+    if (!pts.length) return;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    const [x0, y0] = toCanvas(pts[0][0], pts[0][1]);
+    ctx.moveTo(x0, y0);
+    for (let i = 1; i < pts.length; i++) {
+      const [x, y] = toCanvas(pts[i][0], pts[i][1]);
+      ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Draw World Continents
+  drawPoly([
+    [-168, 65], [-160, 71], [-130, 70], [-95, 70], [-80, 62], [-65, 60], [-55, 50],
+    [-65, 43], [-75, 35], [-80, 25], [-88, 21], [-97, 18], [-105, 23], [-117, 32],
+    [-124, 38], [-124, 48], [-130, 54], [-140, 59], [-165, 60]
+  ], landBase);
+  drawPoly([[-50, 60], [-20, 70], [-25, 83], [-55, 83], [-70, 76], [-55, 60]], isDark ? '#23384f' : '#d1dceb');
+  drawPoly([
+    [-77, 8], [-60, 8], [-35, -5], [-35, -12], [-40, -22], [-50, -30], [-58, -38],
+    [-65, -55], [-75, -50], [-72, -35], [-76, -15], [-80, -2]
+  ], landBase);
+  drawPoly([
+    [-9, 36], [0, 43], [-5, 48], [5, 53], [10, 58], [25, 71], [30, 60], [40, 55],
+    [35, 45], [26, 40], [20, 36], [12, 38], [5, 43], [-5, 36]
+  ], landHigh);
+  drawPoly([[5, 58], [15, 56], [20, 60], [28, 70], [20, 71], [12, 65], [5, 60]], landBase);
+  drawPoly([[-5, 50], [1, 51], [0, 58], [-5, 58], [-6, 54]], landHigh);
+  drawPoly([
+    [-6, 36], [10, 37], [25, 32], [32, 31], [43, 12], [51, 12], [42, -5], [35, -25],
+    [27, -34], [18, -34], [12, -20], [8, 4], [0, 6], [-15, 11], [-17, 21], [-10, 30]
+  ], isDark ? '#213348' : '#8a794b');
+  drawPoly([[44, -12], [50, -15], [47, -25], [43, -25]], landBase);
+  drawPoly([
+    [35, 35], [50, 40], [60, 40], [70, 45], [80, 50], [100, 60], [130, 65], [170, 65],
+    [180, 68], [170, 60], [140, 50], [130, 40], [120, 32], [110, 20], [105, 10],
+    [100, 2], [95, 15], [80, 10], [70, 22], [60, 25], [45, 15], [35, 30]
+  ], landHigh);
+  drawPoly([[130, 32], [136, 35], [141, 41], [145, 44], [141, 38], [132, 33]], landBase);
+  drawPoly([[96, 5], [105, -5], [115, -8], [120, -5], [110, 2]], landBase);
+  drawPoly([[130, -5], [150, -5], [145, -10], [130, -8]], landBase);
+  drawPoly([
+    [114, -22], [122, -15], [135, -12], [142, -10], [153, -28], [150, -37],
+    [138, -35], [130, -32], [115, -35]
+  ], isDark ? '#233346' : '#947a46');
+  drawPoly([[168, -46], [174, -41], [178, -37], [175, -35], [172, -40]], landBase);
+  drawPoly([[-180, -70], [180, -70], [180, -85], [-180, -85]], isDark ? '#23384f' : '#d1dceb');
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.ClampToEdgeWrapping;
