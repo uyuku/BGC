@@ -197,6 +197,31 @@
         <!-- 3D INTERACTIVE GLOBE (Seamless, Organic & Unboxed) -->
         <div class="seamless-globe-container">
           <div id="globeCanvas" class="seamless-globe-canvas"></div>
+          <div class="globe-floating-controls">
+            <jelly-tooltip text="Zoom in" placement="left">
+              <jelly-icon-button id="globeZoomInBtn" label="Zoom in" shape="circle" variant="platinum" size="small">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1rem;height:1rem;" aria-hidden="true">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </jelly-icon-button>
+            </jelly-tooltip>
+            <jelly-tooltip text="Zoom out" placement="left">
+              <jelly-icon-button id="globeZoomOutBtn" label="Zoom out" shape="circle" variant="platinum" size="small">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1rem;height:1rem;" aria-hidden="true">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </jelly-icon-button>
+            </jelly-tooltip>
+            <jelly-tooltip text="Reset view" placement="left">
+              <jelly-icon-button id="globeResetBtn" label="Reset view" shape="circle" variant="platinum" size="small">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1rem;height:1rem;" aria-hidden="true">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                  <path d="M3 3v5h5"></path>
+                </svg>
+              </jelly-icon-button>
+            </jelly-tooltip>
+          </div>
         </div>
       </div>
 
@@ -285,6 +310,7 @@
               <div style="flex: 2; min-width: 220px;">
                 <jelly-label for="seaVia" style="font-size: 0.75rem;">Via Waypoint (Force route through port/strait)</jelly-label>
                 <jelly-input id="seaVia" placeholder="e.g. Skagen, Denmark"></jelly-input>
+                <div class="meta" id="seaViaMeta" style="border-top:none; padding-top:0.2rem;"><em>Via waypoint</em></div>
               </div>
               <div style="flex: 1; min-width: 140px;">
                 <jelly-label for="seaDraftInput" style="font-size: 0.75rem;">Vessel Draft (m)</jelly-label>
@@ -440,6 +466,58 @@
           <jelly-card>
             <div id="map"></div>
           </jelly-card>
+        </section>
+
+        <!-- ESG & SCOPE 3 EMISSIONS CALCULATOR -->
+        <section class="section" id="section-emissions">
+          <div class="section-header section-header--emissions">
+            <h2 class="section-title">Scope 3 GHG Emissions Estimator</h2>
+          </div>
+          <jelly-collapsible class="collapsible-highlight">
+            <span slot="header" class="collapsible-header">
+              <jelly-badge class="collapsible-header-tag">ESG / DEFRA</jelly-badge>
+              Carbon Footprint Summary (kg CO2e)
+            </span>
+            <div class="panel">
+              <div class="meta" style="border-top: none; padding-top: 0; padding-bottom: 0.5rem;">
+                <em>Estimates based on UK Government DEFRA / GHG Protocol standard emission factors. Figures update dynamically as routes are calculated.</em>
+              </div>
+              <div class="emissions-grid">
+                <div class="emission-box">
+                  <div class="dist-title">Air Travel Emissions</div>
+                  <div class="dist-value" id="airEmissionsVal" style="font-size: 1.25rem;">-- <span class="dist-unit">kg CO2e</span></div>
+                  <div class="dist-sub" id="airEmissionsTier">Set departure &amp; arrival above</div>
+                  <jelly-switch id="airRfToggle" size="small" variant="azure" checked style="margin-top: 0.4rem;">
+                    Include Radiative Forcing (RF ~1.9x)
+                  </jelly-switch>
+                </div>
+                <div class="emission-box">
+                  <div class="dist-title">Road Travel Emissions</div>
+                  <div class="dist-value" id="roadEmissionsVal" style="font-size: 1.25rem;">-- <span class="dist-unit">kg CO2e</span></div>
+                  <div class="dist-sub" id="roadEmissionsType">Set driving route above</div>
+                  <div style="margin-top: 0.4rem;">
+                    <jelly-segmented id="roadVehicleSegmented" value="carAverage" size="small">
+                      <jelly-segment value="carAverage" selected>Car (ICE)</jelly-segment>
+                      <jelly-segment value="carEV">EV</jelly-segment>
+                      <jelly-segment value="busTransit">Transit</jelly-segment>
+                    </jelly-segmented>
+                  </div>
+                </div>
+                <div class="emission-box">
+                  <div class="dist-title">Sea Freight / Passenger</div>
+                  <div class="dist-value" id="seaEmissionsVal" style="font-size: 1.25rem;">-- <span class="dist-unit">kg CO2e</span></div>
+                  <div class="dist-sub" id="seaEmissionsType">Set sea passage above</div>
+                  <div style="margin-top: 0.4rem;">
+                    <jelly-segmented id="seaTypeSegmented" value="passengerFerry" size="small">
+                      <jelly-segment value="passengerFerry" selected>Ferry</jelly-segment>
+                      <jelly-segment value="cargoContainer">Container</jelly-segment>
+                      <jelly-segment value="cruiseShip">Cruise</jelly-segment>
+                    </jelly-segmented>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </jelly-collapsible>
         </section>
 
         <!-- BATCH XLSX CALCULATOR -->

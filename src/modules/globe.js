@@ -25,9 +25,18 @@ const TEXTURE_URLS = {
 const textureLoader = new THREE.TextureLoader();
 const cachedTextures = {};
 
-// Eager preload textures immediately on module load
-textureLoader.load(dayMapUrl, (tex) => {
+// Eager preload 8K textures immediately on module load
+function configure8KTexture(tex) {
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+textureLoader.load(dayMapUrl, (tex) => {
+  configure8KTexture(tex);
   cachedTextures['light'] = tex;
   if (earthMesh && activeTheme === 'light') {
     earthMesh.material.map = tex;
@@ -36,7 +45,7 @@ textureLoader.load(dayMapUrl, (tex) => {
 });
 
 textureLoader.load(nightMapUrl, (tex) => {
-  tex.colorSpace = THREE.SRGBColorSpace;
+  configure8KTexture(tex);
   cachedTextures['dark'] = tex;
   if (earthMesh && activeTheme === 'dark') {
     earthMesh.material.map = tex;
@@ -178,7 +187,7 @@ export function initGlobe(containerId = 'globeCanvas') {
   camera.position.set(0, 30, currentCameraZ);
 
   // Renderer with ACES Tone Mapping for cinematic color grading
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -210,6 +219,9 @@ export function initGlobe(containerId = 'globeCanvas') {
   buildGlobeMeshes();
 
   // Pointer drag to freely rotate the Earth
+  let touchStartDist = 0;
+  let initialCameraZ = targetCameraZ;
+
   container.addEventListener('pointerdown', (e) => {
     isDragging = true;
     previousPointer = { x: e.clientX, y: e.clientY };
@@ -233,6 +245,39 @@ export function initGlobe(containerId = 'globeCanvas') {
   });
   window.addEventListener('pointercancel', () => {
     isDragging = false;
+  });
+
+  // Mouse wheel and trackpad smooth zoom
+  container.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    cinematicActive = false;
+    const zoomDelta = e.deltaY * 0.45;
+    targetCameraZ = Math.min(650, Math.max(280, targetCameraZ + zoomDelta));
+  }, { passive: false });
+
+  // Touch pinch-to-zoom support for mobile & tablets
+  container.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStartDist = Math.hypot(dx, dy);
+      initialCameraZ = targetCameraZ;
+    }
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && touchStartDist > 0) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const currentDist = Math.hypot(dx, dy);
+      const factor = touchStartDist / currentDist;
+      targetCameraZ = Math.min(650, Math.max(280, initialCameraZ * factor));
+    }
+  }, { passive: true });
+
+  // Double-click to reset rotation & zoom
+  container.addEventListener('dblclick', () => {
+    resetGlobeView();
   });
 
   // Responsive Resize
@@ -272,7 +317,7 @@ function buildGlobeMeshes() {
     textureLoader.load(
       urlPrimary,
       (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
+        configure8KTexture(tex);
         cachedTextures[activeTheme] = tex;
         material.map = tex;
         material.needsUpdate = true;
@@ -567,3 +612,25 @@ function animate(time = 0) {
     renderer.render(scene, camera);
   }
 }
+
+export function zoomInGlobe(step = 40) {
+  cinematicActive = false;
+  targetCameraZ = Math.max(280, targetCameraZ - step);
+}
+
+export function zoomOutGlobe(step = 40) {
+  cinematicActive = false;
+  targetCameraZ = Math.min(650, targetCameraZ + step);
+}
+
+export function resetGlobeView() {
+  cinematicActive = false;
+  if (currentRoute) {
+    updateGlobeRoute(currentRoute.r1, currentRoute.r2);
+  } else {
+    targetQuaternion.set(0, 0, 0, 1);
+    targetCameraZ = 400;
+    autoRotate = true;
+  }
+}
+

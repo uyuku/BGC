@@ -10,6 +10,16 @@ export default defineConfig({
     postcss: {}
   },
   build: {
-    target: 'esnext'
+    target: 'esnext',
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-three': ['three'],
+          'vendor-maplibre': ['maplibre-gl'],
+          'vendor-searoute': ['searoute-ts']
+        }
+      }
+    }
   }
 });

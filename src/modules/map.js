@@ -125,6 +125,7 @@ export function initMap(containerId, initialTheme = 'light') {
 
   map = new maplibregl.Map({
     container: containerId,
+    preserveDrawingBuffer: true,
     style: {
       version: 8,
       sources: {},
@@ -396,3 +397,8 @@ export function updateMapData({ airLine, seaLine, roadLine, hotelAirLine, hotelR
     fitToActiveRoutes();
   }
 }
+
+export function getMapInstance() {
+  return map;
+}
+

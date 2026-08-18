@@ -30,9 +30,103 @@ function translateTurkishAlias(normalized) {
   return TR_PLACE_ALIASES[normalized] || null;
 }
 
+const IDB_NAME = 'bgc_cache_db';
+const IDB_STORE = 'datasets';
+const IDB_CACHE_KEY = 'airports_data_v1';
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function getCachedDataIDB() {
+  return new Promise((resolve) => {
+    try {
+      if (typeof window === 'undefined' || !window.indexedDB) return resolve(null);
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(IDB_STORE, 'readonly');
+        const store = tx.objectStore(IDB_STORE);
+        const getReq = store.get(IDB_CACHE_KEY);
+        getReq.onsuccess = () => resolve(getReq.result || null);
+        getReq.onerror = () => resolve(null);
+      };
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function saveCachedDataIDB(data) {
+  return new Promise((resolve) => {
+    try {
+      if (typeof window === 'undefined' || !window.indexedDB) return resolve(false);
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        const store = tx.objectStore(IDB_STORE);
+        store.put({ timestamp: Date.now(), data }, IDB_CACHE_KEY);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      };
+      req.onerror = () => resolve(false);
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+function parseAndPopulateDB(rawDict) {
+  DB = [];
+  IATA = {};
+  for (const [icao, a] of Object.entries(rawDict)) {
+    if (a && a.lat != null && a.lon != null) {
+      const item = {
+        iata: (a.iata || '').toUpperCase(),
+        name: a.name || '',
+        city: a.city || '',
+        country: a.country || '',
+        normName: normalizeStr(a.name || ''),
+        normCity: normalizeStr(a.city || ''),
+        lat: +a.lat,
+        lon: +a.lon,
+        mil: MILITARY_RE.test(a.name || '')
+      };
+      DB.push(item);
+      if (item.iata && item.iata.length === 3) {
+        IATA[item.iata] = item;
+      }
+    }
+  }
+
+  IATA_ONLY_DB = DB.filter(d => d.iata && d.iata.length === 3);
+
+  for (const [realCode, datasetCode] of Object.entries(IATA_DB_CORRECTIONS)) {
+    if (IATA[datasetCode] && !IATA[realCode]) {
+      IATA[realCode] = IATA[datasetCode];
+    }
+  }
+}
+
 export async function loadDB(statusBadgeEl) {
   if (dbLoaded) return;
 
+  // 1. Try loading from fast local IndexedDB cache first
+  const cached = await getCachedDataIDB();
+  if (cached && cached.data && Object.keys(cached.data).length > 0) {
+    parseAndPopulateDB(cached.data);
+    dbLoaded = true;
+    dbLoadResolve();
+    if (statusBadgeEl) statusBadgeEl.style.display = 'none';
+
+    // If cache is still fresh (< 7 days), don't refetch
+    if (Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return;
+    }
+  }
+
+  // 2. Fetch from CDN if not cached or cache is stale
   const cdnUrls = [
     'https://cdn.jsdelivr.net/gh/mwgg/Airports@master/airports.json',
     'https://raw.githubusercontent.com/mwgg/Airports/master/airports.json'
@@ -43,46 +137,18 @@ export async function loadDB(statusBadgeEl) {
       const res = await fetch(url);
       if (!res.ok) continue;
       const data = await res.json();
-      for (const [icao, a] of Object.entries(data)) {
-        if (a && a.lat != null && a.lon != null) {
-          const item = {
-            iata: (a.iata || '').toUpperCase(),
-            name: a.name || '',
-            city: a.city || '',
-            country: a.country || '',
-            normName: normalizeStr(a.name || ''),
-            normCity: normalizeStr(a.city || ''),
-            lat: +a.lat,
-            lon: +a.lon,
-            mil: MILITARY_RE.test(a.name || '')
-          };
-          DB.push(item);
-          if (item.iata && item.iata.length === 3) {
-            IATA[item.iata] = item;
-          }
-        }
-      }
+      parseAndPopulateDB(data);
+      saveCachedDataIDB(data);
       if (statusBadgeEl) statusBadgeEl.style.display = 'none';
       break;
     } catch (e) {
-      // Diğer CDN kaynağına geç
+      // Pass to next CDN
     }
   }
 
   if (statusBadgeEl && !DB.length) {
     statusBadgeEl.setAttribute('variant', 'rose');
     statusBadgeEl.textContent = 'Offline';
-  }
-
-  IATA_ONLY_DB = DB.filter(d => d.iata && d.iata.length === 3);
-
-  // See IATA_DB_CORRECTIONS in cities.js - a few real-world IATA codes
-  // this dataset stores under a different code. Point the familiar code
-  // at the same entry so a direct match works for both.
-  for (const [realCode, datasetCode] of Object.entries(IATA_DB_CORRECTIONS)) {
-    if (IATA[datasetCode] && !IATA[realCode]) {
-      IATA[realCode] = IATA[datasetCode];
-    }
   }
 
   dbLoaded = true;

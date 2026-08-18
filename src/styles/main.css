@@ -928,3 +928,53 @@ jelly-input, jelly-select, jelly-slider, jelly-segmented {
     margin-top: -1.8rem;
   }
 }
+
+/* ---------- 3D Globe Floating Controls ---------- */
+
+.globe-floating-controls {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 20;
+  background: var(--jelly-color-background-surface);
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--jelly-color-border-default);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+@media (max-width: 600px) {
+  .globe-floating-controls {
+    top: 1rem;
+    right: 1rem;
+  }
+}
+
+/* ---------- Scope 3 GHG Emissions Grid ---------- */
+
+.section-header--emissions {
+  border-left-color: #5b82a6;
+}
+
+.emissions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  padding: 0.5rem 0;
+  width: 100%;
+}
+
+.emission-box {
+  background: var(--jelly-color-background-surface);
+  border: 1px solid var(--jelly-color-border-default);
+  border-radius: 14px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.02);
+}
+

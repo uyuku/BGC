@@ -1,13 +1,16 @@
 import './styles/main.css';
 import { loadDB, resolveLocation } from './modules/geocoder.js';
-import { initMap, toggleNauticalOverlay, updateMapData, setMapTheme, fitToActiveRoutes } from './modules/map.js';
+import { initMap, toggleNauticalOverlay, updateMapData, setMapTheme, fitToActiveRoutes, getMapInstance } from './modules/map.js';
 import { computeAirRoute } from './modules/air.js';
 import { computeSeaRoute } from './modules/sea.js';
 import { computeRoadRoute } from './modules/road.js';
 import { resolveHotelPoint, computeGuestJourney } from './modules/hotel.js';
 import { downloadSampleTemplate, processBatchFile, processAirOnlyBatchFile, triggerBatchDownload, cancelBatch } from './modules/batch.js';
 import { attachAutocomplete, closeAutocompleteMenu } from './modules/autocomplete.js';
-import { initGlobe, updateGlobeRoute, setGlobeTheme } from './modules/globe.js';
+import { initGlobe, updateGlobeRoute, setGlobeTheme, zoomInGlobe, zoomOutGlobe, resetGlobeView } from './modules/globe.js';
+import { calculateAirEmissions, calculateRoadEmissions, calculateSeaEmissions } from './modules/emissions.js';
+
+
 
 function getInputValue(el) {
   if (!el) return '';
@@ -81,6 +84,54 @@ const mapState = {
   hotelAirLine: null, hotelRoadLine: null, hotelMarkers: []
 };
 
+let currentAirDistKm = null;
+let currentRoadDistKm = null;
+let currentSeaDistKm = null;
+
+function updateEmissionsDisplay() {
+  const airRf = !!document.getElementById('airRfToggle')?.checked;
+  const roadVeh = document.getElementById('roadVehicleSegmented')?.value || 'carAverage';
+  const seaType = document.getElementById('seaTypeSegmented')?.value || 'passengerFerry';
+
+  const airEmValEl = document.getElementById('airEmissionsVal');
+  const airEmTierEl = document.getElementById('airEmissionsTier');
+  const roadEmValEl = document.getElementById('roadEmissionsVal');
+  const roadEmTypeEl = document.getElementById('roadEmissionsType');
+  const seaEmValEl = document.getElementById('seaEmissionsVal');
+  const seaEmTypeEl = document.getElementById('seaEmissionsType');
+
+  // Air
+  if (currentAirDistKm != null && currentAirDistKm > 0) {
+    const airEm = calculateAirEmissions(currentAirDistKm, airRf);
+    if (airEmValEl) airEmValEl.innerHTML = `${airEm.totalKgCO2e.toLocaleString()} <span class="dist-unit">kg CO2e</span>`;
+    if (airEmTierEl) airEmTierEl.textContent = `${airEm.tier === 'domestic' ? 'Domestic' : airEm.tier === 'shortHaul' ? 'Short-haul' : 'Long-haul'} (${airEm.factor} kg/pkm${airRf ? ', with RF' : ''})`;
+  } else {
+    if (airEmValEl) airEmValEl.innerHTML = '-- <span class="dist-unit">kg CO2e</span>';
+    if (airEmTierEl) airEmTierEl.textContent = 'Set departure & arrival above';
+  }
+
+  // Road
+  if (currentRoadDistKm != null && currentRoadDistKm > 0) {
+    const roadEm = calculateRoadEmissions(currentRoadDistKm, roadVeh);
+    if (roadEmValEl) roadEmValEl.innerHTML = `${roadEm.totalKgCO2e.toLocaleString()} <span class="dist-unit">kg CO2e</span>`;
+    if (roadEmTypeEl) roadEmTypeEl.textContent = `${roadVeh} (${roadEm.factor} kg/km)`;
+  } else {
+    if (roadEmValEl) roadEmValEl.innerHTML = '-- <span class="dist-unit">kg CO2e</span>';
+    if (roadEmTypeEl) roadEmTypeEl.textContent = 'Set driving route above';
+  }
+
+  // Sea
+  if (currentSeaDistKm != null && currentSeaDistKm > 0) {
+    const seaEm = calculateSeaEmissions(currentSeaDistKm, seaType);
+    if (seaEmValEl) seaEmValEl.innerHTML = `${seaEm.totalKgCO2e.toLocaleString()} <span class="dist-unit">kg CO2e</span>`;
+    if (seaEmTypeEl) seaEmTypeEl.textContent = `${seaType} (${seaEm.factor} kg/unit-km)`;
+  } else {
+    if (seaEmValEl) seaEmValEl.innerHTML = '-- <span class="dist-unit">kg CO2e</span>';
+    if (seaEmTypeEl) seaEmTypeEl.textContent = 'Set sea passage above';
+  }
+}
+
+
 function syncMap(autoFit = false) {
   updateMapData({
     airLine: mapState.airLine,
@@ -90,6 +141,7 @@ function syncMap(autoFit = false) {
     hotelRoadLine: mapState.hotelRoadLine,
     markers: [...mapState.airMarkers, ...mapState.seaMarkers, ...mapState.roadMarkers, ...mapState.hotelMarkers]
   }, autoFit);
+  updateEmissionsDisplay();
 }
 
 function rawPointMarker(kind, apt, labelOverride = '') {
@@ -378,6 +430,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     lastAirRes = computeAirRoute(r1, r2);
     if (lastAirRes.rawKm != null && lastAirRes.r1?.apt && lastAirRes.r2?.apt) {
+      currentAirDistKm = lastAirRes.rawKm;
       renderAirDist();
       mapState.airLine = {
         ...lastAirRes.line,
@@ -389,6 +442,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       };
     } else {
+      currentAirDistKm = null;
       renderAirDist();
       document.getElementById('route').textContent = 'Awaiting valid inputs';
       mapState.airLine = null;
@@ -401,7 +455,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     origInput?.addEventListener(evt, onAirChange);
     destInput?.addEventListener(evt, onAirChange);
   });
-  detourToggle?.addEventListener('change', () => { renderAirDist(); syncUrlParams(); });
+  detourToggle?.addEventListener('change', () => { renderAirDist(); updateEmissionsDisplay(); });
   document.getElementById('airSwapBtn')?.addEventListener('click', () => swapInputs(origInput, destInput));
 
   // ---------- 2. SEA ROUTE ----------
@@ -440,6 +494,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const res = computeSeaRoute(r1, r2, rVia, draftVal);
 
     if (res && res.km != null && res.r1?.apt && res.r2?.apt) {
+      currentSeaDistKm = res.km;
       const km = res.km;
       const nm = km / 1.852;
       const hours = km / (speedVal * 1.852);
@@ -469,6 +524,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       };
     } else {
+      currentSeaDistKm = null;
       if (distEl) distEl.innerHTML = '-- <span class="dist-unit">km</span>';
       if (durationEl) durationEl.textContent = '-- NM · -- h';
       if (routeEl) routeEl.textContent = res && res.error ? res.error : 'Awaiting valid inputs';
@@ -517,6 +573,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (myGen !== roadGen) return;
 
     if (res && res.km != null && res.r1?.apt && res.r2?.apt) {
+      currentRoadDistKm = res.km;
       const h = Math.floor(res.durationMin / 60);
       const m = res.durationMin % 60;
 
@@ -535,6 +592,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         geometry: res.geometry
       };
     } else {
+      currentRoadDistKm = null;
       if (distEl) distEl.innerHTML = '-- <span class="dist-unit">km</span>';
       if (durationEl) durationEl.textContent = '-- h -- min';
       routeEl.textContent = res && res.error ? res.error : 'Awaiting valid inputs';
@@ -723,6 +781,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   attachAutocomplete(roadDestInput, 'road', (val) => { setInputValue(roadDestInput, val); updateRoad(); closeAutocompleteMenu(); });
   attachAutocomplete(hotelLocationInput, 'road', (val) => { setInputValue(hotelLocationInput, val); updateHotelLocation(); closeAutocompleteMenu(); });
   attachAutocomplete(guestOriginInput, 'air', (val) => { setInputValue(guestOriginInput, val); updateGuestJourney(); closeAutocompleteMenu(); });
+
+  // ---------- 3D GLOBE FLOATING CONTROLS ----------
+  document.getElementById('globeZoomInBtn')?.addEventListener('click', () => zoomInGlobe());
+  document.getElementById('globeZoomOutBtn')?.addEventListener('click', () => zoomOutGlobe());
+  document.getElementById('globeResetBtn')?.addEventListener('click', () => resetGlobeView());
+
+  // ---------- SCOPE 3 EMISSIONS LISTENERS ----------
+  document.getElementById('airRfToggle')?.addEventListener('change', updateEmissionsDisplay);
+  document.getElementById('roadVehicleSegmented')?.addEventListener('change', updateEmissionsDisplay);
+  document.getElementById('seaTypeSegmented')?.addEventListener('change', updateEmissionsDisplay);
 
   applyViewVisibility('landing');
 });
